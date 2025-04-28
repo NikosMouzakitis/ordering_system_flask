@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Current Orders</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .table-section { margin-bottom: 20px; }
+        .order-items { margin-left: 20px; display: none; }
+        .order-item-list { margin-left: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Current Orders</h1>
+    <h2>Select an Open Table to View Orders</h2>
+    <select id="table-selector" onchange="toggleOrderItems(this)">
+        <option value="">Select a Table</option>
+        {% for table_number in open_tables %}
+            <option value="{{ table_number }}">Table {{ table_number }}</option>
+        {% endfor %}
+    </select>
+
+    <div id="order-items">
+        {% for table_number in open_tables %}
+            <div id="table-{{ table_number }}" class="order-items" style="display:none;">
+                <h3>Orders for Table {{ table_number }}:</h3>
+                {% for order in open_orders[table_number] %}
+                    <div id="order-{{ order.id }}" class="order-item-list">
+                        <h4>Order ID: {{ order.id }} - Items:</h4>
+                        <ul>
+                            {% for item in order.items %}
+                                <li>{{ item.menu_item.name }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <a href="{{ url_for('main.index') }}">Back to Tables</a>
+
+    <script>
+        function toggleOrderItems(select) {
+            const selectedTable = select.value;
+            const orderItemsDiv = document.getElementById('order-items');
+            const tables = orderItemsDiv.querySelectorAll('.order-items');
+
+            // Hide all table orders
+            tables.forEach(table => {
+                table.style.display = 'none';
+            });
+
+            // Show the selected table's orders
+            if (selectedTable) {
+                const selectedOrderDiv = document.getElementById(`table-${selectedTable}`);
+                selectedOrderDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
+
