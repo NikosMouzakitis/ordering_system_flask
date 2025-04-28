@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, render_template, request
 from .models import Table, MenuItem, Order, OrderItem
-from . import db
+from . import db, socketio
 
 main = Blueprint('main', __name__)
 
@@ -60,6 +60,7 @@ def create_order():
     
     try:
         db.session.commit()
+        socketio.emit('update_tables')
         print("commited okay")
     except Exception as e:
         print(f"Error commiting: {e}")
@@ -84,6 +85,7 @@ def free_table():
     if table and table.status == 'Occupied':
         table.status = 'Available'
         db.session.commit()
+        socketio.emit('update_tables')
         return jsonify({"message": f"Table {table_id} has been freed and is now available."}), 200
     
     return jsonify({"message": "Table not found or already available."}), 400
