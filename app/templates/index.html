@@ -34,24 +34,68 @@
             margin: 20px;
             width: 70%; 
         }
+	    /* Tooltip styles */
+    .table-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #333;
+        color: white;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 14px;
+        min-width: 150px;
+        text-align: center;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.3s;
+        z-index: 100;
+        margin-bottom: 10px;
+    }
+    
+    .table-tooltip:after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #333 transparent transparent transparent;
+    }
+    
+    .table-box:hover .table-tooltip {
+        visibility: visible;
+        opacity: 1;
+    }
+/*    
+    .table-box {
+        position: relative;
+    }
+*/
+     .table-box {
+        padding: 0; /* Remove padding since we'll handle spacing differently */
+        border-radius: 12px;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s;
+        text-align: center;
+        color: white;
+        position: relative;
+        height: 100px; /* Fixed height */
+        width: 100px; /* Fixed width */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-        .table-box {
-            padding: 20px;
-            border-radius: 12px;
-            font-size: 20px;
-            cursor: pointer;
-            background-image: url("/static/images/table.png");
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            transition: background 0.3s, transform 0.3s;
-            text-align: center;
-            color: white;
-        }
-
-        .table-box:hover {
-            background-color: rgba(255, 215, 0, 0.2);
-            transform: scale(1.05);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-        }
+    /* Big, bold table numbers */
+    .table-number {
+        font-size: 36px;
+        font-weight: bold;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+    }
 
         .available { background-color: #28a745; }
         .occupied { background-color: #dc3545; }
@@ -135,21 +179,46 @@
     <script>
         let selectedTable = null;
         let selectedItems = [];
+	
 
-        function fetchTables() {
-            $.getJSON("/tables", function(data) {
-                let container = $("#tables-container");
-                container.empty();
-                data.tables.forEach(table => {
-                    let colorClass = table.status.toLowerCase();
-                    container.append(`
-                        <div class="table-box ${colorClass}" data-table-id="${table.id}" onclick="selectTable(${table.number})">
-                            ${table.number}
-                        </div>
-                    `);
-                });
-            });
-        }
+	function fetchTables() {
+    $.getJSON("/tables", function(data) {
+        let container = $("#tables-container");
+        container.empty();
+        data.tables.forEach(table => {
+            let colorClass = table.status.toLowerCase();
+            container.append(`
+                <div class="table-box ${colorClass}" data-table-id="${table.id}" onclick="selectTable(${table.number})">
+                    ${table.number}
+                    <div class="table-tooltip" id="tooltip-${table.id}">Loading...</div>
+                </div>
+            `);
+            
+            // Load orders for this table immediately
+            loadTableOrders(table.id);
+        });
+    }).fail(function() {
+        console.error("Failed to load tables");
+    });
+}
+
+function loadTableOrders(tableId) {
+    fetch(`/get_orders/${tableId}`)
+        .then(response => response.json())
+        .then(data => {
+            let tooltip = $(`#tooltip-${tableId}`);
+            if (data.orders && data.orders.length > 0) {
+                tooltip.html(data.orders.join("<br>"));
+            } else {
+                tooltip.html("No orders");
+            }
+        })
+        .catch(error => {
+            console.error("Error loading orders:", error);
+            $(`#tooltip-${tableId}`).html("Error loading orders");
+        });
+}
+
 
         function refreshTables() { fetchTables(); }
 
