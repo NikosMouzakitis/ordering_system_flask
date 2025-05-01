@@ -64,7 +64,7 @@ def create_order():
         print("commited okay")
     except Exception as e:
         print(f"Error commiting: {e}")
-
+    socketio.emit('new_order', {'table_id':table_id, 'status':'Occupied'})
     return jsonify({"status": "success", "order_id": new_order.id})
 
 @main.route('/free_table', methods=['POST'])
@@ -86,6 +86,7 @@ def free_table():
         table.status = 'Available'
         db.session.commit()
         socketio.emit('update_tables')
+        socketio.emit('table_freed',{'table_id':table_id, 'status':'Available'})
         return jsonify({"message": f"Table {table_id} has been freed and is now available."}), 200
     
     return jsonify({"message": "Table not found or already available."}), 400
@@ -136,3 +137,81 @@ def get_orders(table_id):
                 print(f"Menu item with ID {order_item_id} not found.")
 
     return jsonify({"orders": order_items})
+
+
+
+#### FLUTTER MOBILE API ######
+@main.route('/flutter_api/free_table', methods=['POST'])
+def free_table_flutter():
+    table_id = request.form.get('table_id')
+
+    orders = Order.query.filter_by(table_id=table_id, status='open').all()
+    for order in orders:
+        order.status = 'closed'
+
+    table = Table.query.get(table_id)
+    if table:
+        table.status = 'Available'
+
+    db.session.commit()
+
+    return jsonify({"message": f"Table {table_id} freed."})
+
+@main.route('/flutter_api/order', methods=['POST'])
+def create_order_flutter():
+    data = request.get_json()
+    table_id = data.get('table_id')
+    item_ids = data.get('items', [])
+
+    new_order = Order(table_id=table_id)
+    db.session.add(new_order)
+    db.session.flush()
+
+    for item_id in item_ids:
+        db.session.add(OrderItem(order_id=new_order.id, menu_item_id=item_id))
+
+    table = Table.query.get(table_id)
+    if table:
+        table.status = "Occupied"
+
+    try:
+        db.session.commit()
+        socketio.emit('update_tables',{'table_id':table_id})
+        socketio.emit('new_order', {'table_id':table_id, 'status':'Occupied'})
+        return jsonify({"status": "success", "order_id": new_order.id})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@main.route('/flutter_api/menu', methods=['GET'])
+def get_menu_flutter():
+    menu_items = MenuItem.query.all()
+    categories = {}
+
+    for item in menu_items:
+        if item.category not in categories:
+            categories[item.category] = []
+        categories[item.category].append({
+            "id": item.id,
+            "name": item.name,
+            "price": item.price
+        })
+
+    return jsonify(categories)
+
+@main.route('/flutter_api/get_orders/<int:table_id>', methods=['GET'])
+def get_orders_flutter(table_id):
+    orders = Order.query.filter_by(table_id=table_id, status='open').all()
+    order_items = []
+
+    for order in orders:
+        for item in order.items:
+            if item.menu_item:
+                order_items.append(item.menu_item.name)
+
+    return jsonify({"orders": order_items})
+
+@main.route('/flutter_api/tables', methods=['GET'])
+def get_tables_flutter():
+    tables = Table.query.all()
+    return jsonify([{"id": t.id, "number": t.number, "status": t.status} for t in tables])
+
