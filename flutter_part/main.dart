@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,21 +16,50 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter POS',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFF9E7C4E)), // Soft brown color
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9E7C4E)),
         useMaterial3: true,
-        textTheme: TextTheme(
-          headline1: TextStyle(fontFamily: 'Roboto', fontSize: 30, fontWeight: FontWeight.w600, color: Colors.brown[800]),
-          bodyText1: TextStyle(fontFamily: 'Roboto', fontSize: 16, color: Colors.brown[700]),
-          bodyText2: TextStyle(fontFamily: 'Roboto', fontSize: 14, color: Colors.brown[600]),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ButtonStyle(
-            backgroundColor: MaterialStateProperty.all(Colors.brown[200]),
-            shape: MaterialStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-          ),
+      ),
+      home: const IPConfigPage(),
+    );
+  }
+}
+
+class IPConfigPage extends StatefulWidget {
+  const IPConfigPage({super.key});
+
+  @override
+  State<IPConfigPage> createState() => _IPConfigPageState();
+}
+
+class _IPConfigPageState extends State<IPConfigPage> {
+  final TextEditingController _ipController = TextEditingController();
+
+  Future<void> _saveIP() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('server_ip', _ipController.text.trim());
+    Navigator.pushReplacement(
+        context, MaterialPageRoute(builder: (_) => const MyHomePage(title: 'POS')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Server Configuration')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Enter Server IP:'),
+            TextField(
+              controller: _ipController,
+              decoration: const InputDecoration(hintText: 'e.g., 192.168.1.100'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: _saveIP, child: const Text('Continue')),
+          ],
         ),
       ),
-      home: const MyHomePage(title: 'test_POS'),
     );
   }
 }
@@ -43,82 +73,145 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  OverlayEntry? _orderOverlayEntry;
   late IO.Socket socket;
   int? selectedTableId;
   List<Map<String, dynamic>> tables = [];
+  String serverIp = '';
 
   @override
   void initState() {
     super.initState();
-    fetchTables();
-    initializeSocket();
+    _loadServerIP();
+  }
+
+  Future<void> _loadServerIP() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    serverIp = prefs.getString('server_ip') ?? '';
+    if (serverIp.isEmpty) {
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (_) => const IPConfigPage()));
+    } else {
+      fetchTables();
+      initializeSocket();
+    }
+  }
+
+void _showOrderOverlay(BuildContext context, int tableId) async {
+  try {
+    final response = await http.get(Uri.parse('http://$serverIp:5000/flutter_api/get_orders/$tableId'));
+
+    if (response.statusCode == 200) {
+      final order = json.decode(response.body);
+
+      // Ensure that we check if 'orders' exists and is a non-empty list
+      if (order['orders'] != null && order['orders'].isNotEmpty) {
+        _orderOverlayEntry = OverlayEntry(
+          builder: (context) => Positioned(
+            top: 100,
+            left: 50,
+            right: 50,
+            child: Material(
+              elevation: 10,
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Table $tableId Order', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    const SizedBox(height: 10),
+                    ...order['orders'].map<Widget>((item) => Text('- $item')).toList(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        Overlay.of(context).insert(_orderOverlayEntry!);
+      } else {
+        // If no items, show a default message or handle it accordingly
+        _orderOverlayEntry = OverlayEntry(
+          builder: (context) => Positioned(
+            top: 100,
+            left: 50,
+            right: 50,
+            child: Material(
+              elevation: 10,
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Text('Table has no active orders.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        Overlay.of(context).insert(_orderOverlayEntry!);
+      }
+    }
+  } catch (e) {
+    print('Error fetching order: $e');
+  }
+}
+ 
+
+  void _removeOrderOverlay() {
+    _orderOverlayEntry?.remove();
+    _orderOverlayEntry = null;
   }
 
   void initializeSocket() {
-    socket = IO.io('http://192.168.161.247:5000', <String, dynamic>{
+    socket = IO.io('http://$serverIp:5000', <String, dynamic>{
       'transports': ['websocket'],
     });
 
-    socket.on('connect', (_) {
-      print('Connected to server');
-    });
-
-    socket.on('disconnect', (_) {
-      print('Disconnected from server');
-    });
+    socket.on('connect', (_) => print('Connected to server'));
+    socket.on('disconnect', (_) => print('Disconnected from server'));
 
     socket.on('table_freed', (data) {
-      print('Table Freed: $data');
-      setState(() {
-        int tableId = int.parse(data['table_id'].toString());
-        int index = tables.indexWhere((t) => t['id'] == tableId);
-        if (index != -1) {
-          tables[index]['status'] = 'Available';
-        }
-      });
+      int tableId = int.parse(data['table_id'].toString());
+      int index = tables.indexWhere((t) => t['id'] == tableId);
+      if (index != -1) setState(() => tables[index]['status'] = 'Available');
     });
 
     socket.on('new_order', (data) {
-      print('New Order: $data');
-      setState(() {
-        int tableId = int.parse(data['table_id'].toString());
-        int index = tables.indexWhere((t) => t['id'] == tableId);
-        if (index != -1) {
-          tables[index]['status'] = 'Occupied';
-        }
-      });
+      int tableId = int.parse(data['table_id'].toString());
+      int index = tables.indexWhere((t) => t['id'] == tableId);
+      if (index != -1) setState(() => tables[index]['status'] = 'Occupied');
     });
   }
 
   Future<void> fetchTables() async {
-    final response = await http.get(Uri.parse('http://192.168.161.247:5000/flutter_api/tables'));
-    if (response.statusCode == 200) {
-      setState(() {
-        tables = List<Map<String, dynamic>>.from(json.decode(response.body));
-      });
-    } else {
-      print('Failed to load tables');
+    try {
+      final response =
+          await http.get(Uri.parse('http://$serverIp:5000/flutter_api/tables'));
+      if (response.statusCode == 200) {
+        setState(() => tables =
+            List<Map<String, dynamic>>.from(json.decode(response.body)));
+      }
+    } catch (e) {
+      print('Failed to load tables: $e');
     }
   }
 
-  void _selectTable(int tableId) {
-    setState(() {
-      selectedTableId = tableId;
-    });
-  }
+  void _selectTable(int tableId) => setState(() => selectedTableId = tableId);
 
   void _openOrderMenu(int tableId) async {
     final shouldRefresh = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => OrderScreen(tableId: tableId),
-      ),
+          builder: (context) =>
+              OrderScreen(tableId: tableId, serverIp: serverIp)),
     );
-
-    // If order was submitted, refresh tables
-    if (shouldRefresh == true) {
-      fetchTables();
-    }
+    if (shouldRefresh == true) fetchTables();
   }
 
   @override
@@ -126,9 +219,10 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-        backgroundColor: Color(0xFF9E7C4E), // Soft brown color
+        backgroundColor: const Color(0xFF9E7C4E),
         elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(bottom: Radius.circular(20))),
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20))),
       ),
       body: Column(
         children: [
@@ -138,14 +232,11 @@ class _MyHomePageState extends State<MyHomePage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Selected Table: $selectedTableId',
-                    style: Theme.of(context).textTheme.headline1,
-                  ),
+                  Text('Selected Table: $selectedTableId',
+                      style: Theme.of(context).textTheme.headline6),
                   ElevatedButton(
-                    onPressed: () => _openOrderMenu(selectedTableId!),
-                    child: const Text('Order'),
-                  ),
+                      onPressed: () => _openOrderMenu(selectedTableId!),
+                      child: const Text('Order')),
                 ],
               ),
             ),
@@ -163,22 +254,29 @@ class _MyHomePageState extends State<MyHomePage> {
                 final table = tables[index];
                 return GestureDetector(
                   onTap: () => _selectTable(table['id']),
+                  onLongPressStart: (_) =>
+                      _showOrderOverlay(context, table['id']),
+                  onLongPressEnd: (_) => _removeOrderOverlay(),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: table['status'] == 'Occupied' ? Colors.red : Color(0xFF8E735B), // Earthy brown color
+                      color: table['status'] == 'Occupied'
+                          ? Colors.red
+                          : const Color(0xFF8E735B),
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))
+                      boxShadow: const [
+                        BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: Offset(0, 4))
                       ],
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       'Table ${table['number']}',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500),
                     ),
                   ),
                 );
@@ -193,7 +291,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
 class OrderScreen extends StatefulWidget {
   final int tableId;
-  const OrderScreen({super.key, required this.tableId});
+  final String serverIp;
+  const OrderScreen({super.key, required this.tableId, required this.serverIp});
 
   @override
   State<OrderScreen> createState() => _OrderScreenState();
@@ -201,7 +300,7 @@ class OrderScreen extends StatefulWidget {
 
 class _OrderScreenState extends State<OrderScreen> {
   Map<String, List<Map<String, dynamic>>> menu = {};
-  List<int> selectedItemIds = [];
+  Map<int, int> selectedItemCounts = {};
 
   @override
   void initState() {
@@ -210,42 +309,54 @@ class _OrderScreenState extends State<OrderScreen> {
   }
 
   Future<void> fetchMenu() async {
-    final response = await http.get(Uri.parse('http://192.168.161.247:5000/flutter_api/menu'));
-    if (response.statusCode == 200) {
-      setState(() {
-        menu = Map<String, List<Map<String, dynamic>>>.from(
-          (json.decode(response.body) as Map).map(
-            (key, value) => MapEntry(
-              key,
-              List<Map<String, dynamic>>.from(value),
+    try {
+      final response =
+          await http.get(Uri.parse('http://${widget.serverIp}:5000/flutter_api/menu'));
+      if (response.statusCode == 200) {
+        setState(() {
+          menu = Map<String, List<Map<String, dynamic>>>.from(
+            (json.decode(response.body) as Map).map(
+              (key, value) =>
+                  MapEntry(key, List<Map<String, dynamic>>.from(value)),
             ),
-          ),
-        );
-      });
-    } else {
-      print('Failed to load menu');
+          );
+        });
+      }
+    } catch (e) {
+      print('Failed to load menu: $e');
     }
   }
 
   void _submitOrder() async {
+    final filtered = selectedItemCounts.entries.where((e) => e.value > 0).toList();
+    if (filtered.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please select at least one item')));
+      return;
+    }
+
+    final List<int> flatItemIds = [];
+    for (var entry in filtered) {
+      flatItemIds.addAll(List.generate(entry.value, (_) => entry.key));
+    }
+
     final response = await http.post(
-      Uri.parse('http://192.168.161.247:5000/flutter_api/order'),
+      Uri.parse('http://${widget.serverIp}:5000/flutter_api/order'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'table_id': widget.tableId,
-        'items': selectedItemIds,
+        'items': flatItemIds,
       }),
     );
 
     if (response.statusCode == 200) {
-      setState(() {
-        selectedItemIds.clear();
-      });
-
-      // Pop and pass back a flag to refresh
+      setState(() => selectedItemCounts.clear());
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Order submitted')));
       Navigator.pop(context, true);
     } else {
-      print('Failed to submit order');
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Failed to submit order')));
     }
   }
 
@@ -254,33 +365,43 @@ class _OrderScreenState extends State<OrderScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Order for Table ${widget.tableId}'),
-        backgroundColor: Color(0xFF9E7C4E), // Soft brown color
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(bottom: Radius.circular(20))),
+        backgroundColor: const Color(0xFF9E7C4E),
       ),
       body: Column(
         children: [
           Expanded(
             child: ListView(
               children: menu.entries.map((entry) {
-                return Container(
-                  color: Colors.brown[50], // Lighter background for categories
-                  child: ExpansionTile(
-                    title: Text(entry.key, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.brown[700])),
-                    children: entry.value.map((item) {
-                      return ListTile(
-                        title: Text(item['name']),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: () {
-                            setState(() {
-                              selectedItemIds.add(item['id']);
-                            });
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                return ExpansionTile(
+                  title: Text(entry.key,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                  children: entry.value.map((item) {
+                    final itemId = item['id'];
+                    final count = selectedItemCounts[itemId] ?? 0;
+                    return ListTile(
+                      title: Text(item['name']),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              if (count > 0) {
+                                setState(() => selectedItemCounts[itemId] = count - 1);
+                              }
+                            },
+                            icon: const Icon(Icons.remove),
+                          ),
+                          Text('$count'),
+                          IconButton(
+                            onPressed: () =>
+                                setState(() => selectedItemCounts[itemId] = count + 1),
+                            icon: const Icon(Icons.add),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 );
               }).toList(),
             ),
@@ -290,28 +411,21 @@ class _OrderScreenState extends State<OrderScreen> {
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
-                const Text(
-                  'Selected Items:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                const Text('Selected Items:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 Wrap(
                   spacing: 8.0,
-                  children: selectedItemIds.map((id) {
+                  children: selectedItemCounts.entries.map((entry) {
                     final item = menu.entries
                         .expand((e) => e.value)
-                        .firstWhere((element) => element['id'] == id);
-                    return Chip(
-                      label: Text(item['name']),
-                      onDeleted: () {
-                        setState(() {
-                          selectedItemIds.remove(id);
-                        });
-                      },
-                    );
+                        .firstWhere((e) => e['id'] == entry.key);
+                    return Chip(label: Text('${item['name']} x${entry.value}'));
                   }).toList(),
                 ),
                 ElevatedButton(
-                  onPressed: _submitOrder,
+                  onPressed: selectedItemCounts.values.any((q) => q > 0)
+                      ? _submitOrder
+                      : null,
                   child: const Text('Submit Order'),
                 ),
                 ElevatedButton(

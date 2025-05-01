@@ -162,6 +162,10 @@ def create_order_flutter():
     data = request.get_json()
     table_id = data.get('table_id')
     item_ids = data.get('items', [])
+    print("received order from flutter")
+    print(data)
+    print(table_id)
+    print(item_ids)
 
     new_order = Order(table_id=table_id)
     db.session.add(new_order)
@@ -181,6 +185,8 @@ def create_order_flutter():
         return jsonify({"status": "success", "order_id": new_order.id})
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
+
+
 
 @main.route('/flutter_api/menu', methods=['GET'])
 def get_menu_flutter():
