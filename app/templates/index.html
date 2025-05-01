@@ -6,96 +6,86 @@
     <title>Restaurant Test Tables</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100vh; 
-            margin: 0; 
-            background-color: #d5efec; 
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background-color: #d5efec;
         }
-
         .navbar {
             margin-bottom: 20px;
         }
-
         .main-container {
             display: flex;
-            flex: 1; 
+            flex: 1;
         }
-
         .grid-container {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 15px;
             margin: 20px;
-            width: 70%; 
+            width: 70%;
         }
-	    /* Tooltip styles */
-    .table-tooltip {
-        position: absolute;
-        bottom: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #333;
-        color: white;
-        padding: 8px;
-        border-radius: 4px;
-        font-size: 14px;
-        min-width: 150px;
-        text-align: center;
-        visibility: hidden;
-        opacity: 0;
-        transition: opacity 0.3s;
-        z-index: 100;
-        margin-bottom: 10px;
-    }
-    
-    .table-tooltip:after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        margin-left: -5px;
-        border-width: 5px;
-        border-style: solid;
-        border-color: #333 transparent transparent transparent;
-    }
-    
-    .table-box:hover .table-tooltip {
-        visibility: visible;
-        opacity: 1;
-    }
-/*    
-    .table-box {
-        position: relative;
-    }
-*/
-     .table-box {
-        padding: 0; /* Remove padding since we'll handle spacing differently */
-        border-radius: 12px;
-        cursor: pointer;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        transition: all 0.3s;
-        text-align: center;
-        color: white;
-        position: relative;
-        height: 100px; /* Fixed height */
-        width: 100px; /* Fixed width */
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
 
-    /* Big, bold table numbers */
-    .table-number {
-        font-size: 36px;
-        font-weight: bold;
-        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
-    }
+        /* Tooltip styles */
+        .table-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            min-width: 150px;
+            text-align: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+            margin-bottom: 10px;
+        }
+        .table-tooltip:after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .table-box:hover .table-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .table-box {
+            padding: 0;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+            text-align: center;
+            color: white;
+            position: relative;
+            height: 100px;
+            width: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .table-number {
+            font-size: 36px;
+            font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+        }
 
         .available { background-color: #28a745; }
         .occupied { background-color: #dc3545; }
@@ -104,10 +94,12 @@
         .controls {
             margin: 20px;
             padding: 20px;
-            width: 30%; 
+            width: 30%;
         }
 
-        .controls h3 { margin-bottom: 15px; }
+        .controls h3 {
+            margin-bottom: 15px;
+        }
 
         .menu-tabs {
             margin-bottom: 10px;
@@ -132,7 +124,8 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <a class="navbar-brand" href="{{ url_for('main.index') }}">Restaurant Tables</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
@@ -163,7 +156,16 @@
                     <button class="btn btn-info" onclick="confirmOrder()">Confirm Order</button>
                 </div>
             </div>
+
+            <!-- Free Table Button -->
             <button class="btn btn-warning" id="free-table-button" style="display:none;" onclick="openFreeTableModal()">Free Table</button>
+
+            <!-- Print Receipt Button -->
+            <button class="btn btn-info" id="print-receipt-button" style="display:none;" onclick="printReceipt()">Print Receipt</button>
+		 
+	    <button class="btn btn-info" id="preview-receipt-button" style="display:none;" onclick="previewReceipt()">Preview Receipt</button>
+
+            <!-- Modal to select payment method -->
             <div id="free-table-modal" style="display:none;">
                 <h4>Select Payment Method for Table <span id="free-table-number"></span></h4>
                 <select id="payment-method" class="form-control">
@@ -179,60 +181,109 @@
     <script>
         let selectedTable = null;
         let selectedItems = [];
-	
 
-	function fetchTables() {
-    $.getJSON("/tables", function(data) {
-        let container = $("#tables-container");
-        container.empty();
-        data.tables.forEach(table => {
-            let colorClass = table.status.toLowerCase();
-            container.append(`
-                <div class="table-box ${colorClass}" data-table-id="${table.id}" onclick="selectTable(${table.number})">
-                    ${table.number}
-                    <div class="table-tooltip" id="tooltip-${table.id}">Loading...</div>
-                </div>
-            `);
-            
-            // Load orders for this table immediately
-            loadTableOrders(table.id);
-        });
-    }).fail(function() {
-        console.error("Failed to load tables");
-    });
-}
 
-function loadTableOrders(tableId) {
-    fetch(`/get_orders/${tableId}`)
+function previewReceipt() {
+    if (!selectedTable) {
+        alert("No table selected.");
+        return;
+    }
+
+    // Fetch the preview data (not the PDF)
+    fetch(`/receipt_preview/${selectedTable}`)
         .then(response => response.json())
         .then(data => {
-            let tooltip = $(`#tooltip-${tableId}`);
-            if (data.orders && data.orders.length > 0) {
-                tooltip.html(data.orders.join("<br>"));
-            } else {
-                tooltip.html("No orders");
-            }
+            const { table_number, items, total } = data;
+
+            let receiptText = "========================\n";
+            receiptText += `     PDA v.1 TEST   \n`;
+            receiptText += `     Restaurant Bill\n`;
+            receiptText += `     Table ${table_number}\n`;
+            receiptText += "========================\n";
+
+            items.forEach(item => {
+                receiptText += `${item.name} - $${item.price.toFixed(2)}\n`;
+            });
+
+            receiptText += "------------------------\n";
+            receiptText += `Total:          $${total.toFixed(2)}\n`;
+            receiptText += "========================\n";
+            receiptText += "xx TEST RECEIPT PDA v.1.\n";
+
+            // Set the receipt text inside the modal
+            $('#receipt-preview-content').text(receiptText);
+
+            // Show the modal
+            $('#receipt-preview-modal').modal('show');
         })
-        .catch(error => {
-            console.error("Error loading orders:", error);
-            $(`#tooltip-${tableId}`).html("Error loading orders");
+        .catch(() => {
+            alert("Error loading receipt data.");
         });
 }
 
 
-        function refreshTables() { fetchTables(); }
+
+
+        function fetchTables() {
+            $.getJSON("/tables", function(data) {
+                let container = $("#tables-container");
+                container.empty();
+                data.tables.forEach(table => {
+                    let colorClass = table.status.toLowerCase();
+                    container.append(`
+                        <div class="table-box ${colorClass}" data-table-id="${table.id}" onclick="selectTable(${table.number})">
+                            ${table.number}
+                            <div class="table-tooltip" id="tooltip-${table.id}">Loading...</div>
+                        </div>
+                    `);
+                    loadTableOrders(table.id);
+                });
+            }).fail(function () {
+                console.error("Failed to load tables");
+            });
+        }
+
+        function loadTableOrders(tableId) {
+            fetch(`/get_orders/${tableId}`)
+                .then(response => response.json())
+                .then(data => {
+                    $(`#tooltip-${tableId}`).html(data.orders.length > 0 ? data.orders.join("<br>") : "No orders").show();
+                })
+                .catch(error => {
+                    $(`#tooltip-${tableId}`).html("Error loading orders");
+                });
+        }
+
+        function refreshTables() {
+            fetchTables();
+        }
 
         function selectTable(tableNumber) {
             selectedTable = tableNumber;
             $("#selected-table-number").text(tableNumber);
             $("#order-button").show();
             $("#order-section").show();
-            
-            if (tableIsOccupied(tableNumber)) {
-                $("#free-table-button").show();
-            } else {
-                $("#free-table-button").hide();
-            }
+
+            // Show buttons based on whether table is occupied
+            fetch(`/get_orders/${tableNumber}`)
+                .then(response => response.json())
+                .then(data => {
+                    const isOccupied = data.orders && data.orders.length > 0;
+
+                    if (isOccupied) {
+                        $("#free-table-button").show();
+                        $("#print-receipt-button").show();
+                        $("#preview-receipt-button").show();
+
+                    } else {
+                        $("#free-table-button").hide();
+                        $("#print-receipt-button").hide();
+                    }
+                })
+                .catch(() => {
+                    $("#free-table-button").hide();
+                    $("#print-receipt-button").hide();
+                });
         }
 
         function openFreeTableModal() {
@@ -246,7 +297,6 @@ function loadTableOrders(tableId) {
 
         function confirmFreeTable() {
             const paymentMethod = $("#payment-method").val();
-
             $.post("/free_table", {
                 table_id: selectedTable,
                 payment_method: paymentMethod
@@ -254,30 +304,21 @@ function loadTableOrders(tableId) {
                 alert(`Table ${selectedTable} has been freed!`);
                 $("#free-table-modal").hide();
                 $("#free-table-button").hide();
+                $("#print-receipt-button").hide();
                 refreshTables();
-            });  
+            });
         }
 
-        function tableIsOccupied(tableNumber) {
-            let occupied = false;
-
-            $.getJSON("/tables", function(data) {
-                data.tables.forEach(table => {
-                    if (table.number === tableNumber && table.status === 'Occupied') {
-                        occupied = true;
-                    }
-                });
-                if (occupied) {
-                    $("#free-table-button").show();
-                } else {
-                    $("#free-table-button").hide();
-                }
-            });
-            return occupied;
-        }   
+        function printReceipt() {
+            if (!selectedTable) {
+                alert("No table selected.");
+                return;
+            }
+            window.open(`/receipt/${selectedTable}`, '_blank');
+        }
 
         function openOrderMenu() {
-            fetchCategories(); // Fetch categories first
+            fetchCategories();
             $("#submenu").show();
         }
 
@@ -285,16 +326,16 @@ function loadTableOrders(tableId) {
             $.getJSON("/menu", function(data) {
                 let categories = Object.keys(data);
                 createCategoryButtons(categories);
-                fetchMenuItems(categories[0]); // Fetch items for the first category by default
+                fetchMenuItems(categories[0]);
             });
         }
 
         function createCategoryButtons(categories) {
             let buttonContainer = $("#category-buttons");
-            buttonContainer.empty(); // Clear existing buttons
+            buttonContainer.empty();
             categories.forEach(category => {
                 let button = $(`<button class="btn btn-info category-button" data-category="${category}">${category}</button>`);
-                button.on('click', function() {
+                button.on('click', function () {
                     fetchMenuItems(category);
                 });
                 buttonContainer.append(button);
@@ -305,7 +346,6 @@ function loadTableOrders(tableId) {
             $.getJSON("/menu", function(data) {
                 let menuContainer = $("#menu-items");
                 menuContainer.empty();
-
                 if (data[category]) {
                     data[category].forEach(item => {
                         menuContainer.append(`
@@ -315,8 +355,7 @@ function loadTableOrders(tableId) {
                         `);
                     });
 
-                    // Handle menu item click to add to order
-                    $('.menu-item').off('click').on('click', function() {
+                    $('.menu-item').off('click').on('click', function () {
                         let itemId = $(this).data('id');
                         let itemName = $(this).data('name');
                         let itemPrice = $(this).data('price');
@@ -341,14 +380,13 @@ function loadTableOrders(tableId) {
 
         function confirmOrder() {
             let itemIds = selectedItems.map(item => item.id);
-
             if (itemIds.length > 0) {
                 $.post("/order", {
                     table_id: selectedTable,
                     items: itemIds
                 }, function(response) {
                     alert(`Order confirmed for Table ${selectedTable}!`);
-                    selectedItems = []; // Reset selected items
+                    selectedItems = [];
                     updateSelectedItems();
                     $("#submenu").hide();
                     $("#order-section").hide();
@@ -359,16 +397,13 @@ function loadTableOrders(tableId) {
             }
         }
 
-        $(document).ready(function() {
+        $(document).ready(function () {
             fetchTables();
-            
-	    var socket = io();
-	    socket.on('update_tables', function() {
-		console.log('Update tables event received');
-		fetchTables(); // Re-fetch table statuses
-	    });	
+            var socket = io();
+            socket.on('update_tables', function () {
+                fetchTables(); });
 
-            $(document).on('mouseenter', '.table-box', function() {
+            $(document).on('mouseenter', '.table-box', function () {
                 let tableId = $(this).data("table-id");
                 fetch(`/get_orders/${tableId}`)
                     .then(response => response.json())
@@ -377,13 +412,31 @@ function loadTableOrders(tableId) {
                     });
             });
 
-            $(document).on('mouseleave', '.table-box', function() {
+            $(document).on('mouseleave', '.table-box', function () {
                 let tableId = $(this).data("table-id");
                 $(`#tooltip-${tableId}`).hide();
             });
         });
     </script>
-
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+
+
+<!-- Add this at the end of body -->
+<div class="modal fade" id="receipt-preview-modal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Receipt Preview</h5>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body" id="receipt-preview-content" style="white-space: pre-wrap;"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button class="btn btn-primary" onclick="window.print()">Print</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

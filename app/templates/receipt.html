@@ -1,0 +1,58 @@
+<!-- templates/receipt.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Receipt - Table {{ table.number }}</title>
+    <style>
+        body {
+            font-family: monospace;
+            width: 300px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        h2 {
+            text-align: center;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            display: flex;
+            justify-content: space-between;
+        }
+        hr {
+            border: 1px dashed #000;
+            margin: 10px 0;
+        }
+        .total {
+            font-weight: bold;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Restaurant Receipt</h2>
+    <p><strong>Table:</strong> {{ table.number }}</p>
+    <ul>
+        {% for item in items %}
+            <li>
+                <span>{{ item.name }}</span>
+                <span>${{ "%.2f"|format(item.price) }}</span>
+            </li>
+        {% endfor %}
+    </ul>
+    <hr>
+    <div class="total">Total: ${{ "%.2f"|format(total) }}</div>
+
+    <!-- Auto-print script -->
+    <script>
+        window.onload = function() {
+            window.print();
+        };
+    </script>
+</body>
+</html>

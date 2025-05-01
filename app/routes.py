@@ -221,3 +221,75 @@ def get_tables_flutter():
     tables = Table.query.all()
     return jsonify([{"id": t.id, "number": t.number, "status": t.status} for t in tables])
 
+
+
+
+
+
+
+
+
+##### BILL RECEIPTS ##########
+import pdfkit
+import os
+from flask import send_file
+from io import BytesIO
+@main.route('/receipt/<int:table_id>')
+def generate_receipt(table_id):
+    table = Table.query.get_or_404(table_id)
+    orders = Order.query.filter_by(table_id=table_id, status='open').all()
+
+    items = []
+    total = 0
+    for order in orders:
+        for item in order.items:
+            if item.menu_item:
+                items.append(item.menu_item)
+                total += item.menu_item.price
+
+    rendered_html = render_template('bill_template.html', table=table, items=items, total=round(total, 2))
+
+    try:
+        config = pdfkit.configuration(wkhtmltopdf="/usr/bin/wkhtmltopdf")
+        pdfkit.from_string(rendered_html, False, configuration=config)
+        # Generate PDF in memory
+        pdf = pdfkit.from_string(rendered_html, False)
+        
+        # Wrap in BytesIO for sending directly without saving to disk
+        pdf_io = BytesIO(pdf)
+
+        return send_file(
+            pdf_io,
+            as_attachment=True,
+            download_name=f'receipt_table_{table_id}.pdf',
+            mimetype='application/pdf'
+        )
+    except Exception as e:
+        return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
+
+
+
+
+@main.route('/receipt_preview/<int:table_id>', methods=['GET'])
+def generate_receipt_preview(table_id):
+    table = Table.query.get_or_404(table_id)
+    orders = Order.query.filter_by(table_id=table_id, status='open').all()
+
+    items = []
+    total = 0
+    for order in orders:
+        for item in order.items:
+            if item.menu_item:
+                items.append({
+                    'name': item.menu_item.name,
+                    'price': item.menu_item.price
+                })
+                total += item.menu_item.price
+
+    # Return a JSON response for the preview
+    return jsonify({
+        'table_number': table.number,
+        'items': items,
+        'total': round(total, 2)
+    })
+
