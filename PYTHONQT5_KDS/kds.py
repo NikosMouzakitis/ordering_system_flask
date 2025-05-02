@@ -1,11 +1,13 @@
 import sys
 import json
 import requests
+import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QPushButton, QMessageBox, QLineEdit, QDialog, 
                              QScrollArea, QFrame, QStyle, QGridLayout)
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject, QUrl
 from PyQt5.QtGui import QFont, QColor, QPalette
+from PyQt5.QtMultimedia import QSoundEffect
 from socketio import Client
 
 class SocketSignals(QObject):
@@ -42,6 +44,15 @@ class KitchenScreen(QMainWindow):
         super().__init__()
         self.server_ip = server_ip
         self.orders = []
+        
+        # Sound effects
+        self.notification_sound = QSoundEffect()
+        self.notification_sound.setSource(QUrl.fromLocalFile(os.path.join(os.path.dirname(__file__), "notification.wav")))
+        self.notification_sound.setVolume(0.7)
+        
+        self.completion_sound = QSoundEffect()
+        self.completion_sound.setSource(QUrl.fromLocalFile(os.path.join(os.path.dirname(__file__), "complete.wav")))
+        self.completion_sound.setVolume(0.5)
         
         # Socket.IO setup
         self.sio = Client()
@@ -152,16 +163,19 @@ class KitchenScreen(QMainWindow):
             def on_new_order(data):
                 print("New order received via socket")
                 self.socket_signals.new_order.emit(data)
+                self.notification_sound.play()
             
             @self.sio.on('item_completed')
             def on_item_completed(data):
                 print(f"Item completed: {data}")
                 self.socket_signals.item_completed.emit(data)
+                self.completion_sound.play()
             
             @self.sio.on('order_completed')
             def on_order_completed(data):
                 print(f"Order completed: {data}")
                 self.socket_signals.order_completed.emit(data)
+                self.completion_sound.play()
             
             self.sio.connect(url)
                 
@@ -177,7 +191,7 @@ class KitchenScreen(QMainWindow):
         for order in self.orders:
             if order['id'] == data['order_id']:
                 for item in order['items']:
-                    if item['id'] == data['item_id']:
+                    if item['id'] == data['item_id'] and not item['completed']:
                         item['completed'] = True
                         break
                 break
@@ -195,6 +209,7 @@ class KitchenScreen(QMainWindow):
             
             if response.status_code == 200:
                 self.orders = response.json()
+                self.process_duplicate_items()
                 self.display_orders()
             else:
                 raise Exception(f"Failed to load orders: {response.text}")
@@ -202,6 +217,18 @@ class KitchenScreen(QMainWindow):
         except Exception as e:
             print(f"Error fetching orders: {e}")
             self.statusBar().showMessage(f"Error loading orders: {str(e)}", 5000)
+    
+    def process_duplicate_items(self):
+        """Add unique identifiers to duplicate items in each order"""
+        for order in self.orders:
+            item_counts = {}
+            for item in order['items']:
+                key = f"{item['id']}_{item['name']}"
+                item_counts[key] = item_counts.get(key, 0) + 1
+                if item_counts[key] > 1:
+                    item['unique_id'] = f"{item['id']}_{item_counts[key]}"
+                else:
+                    item['unique_id'] = str(item['id'])
     
     def display_orders(self):
         # Clear existing orders
@@ -288,12 +315,38 @@ class KitchenScreen(QMainWindow):
         items_layout.setSpacing(6)
         items_container.setLayout(items_layout)
         
+        # Group identical items with quantities
+        grouped_items = {}
         for item in order['items']:
-            item_widget = self.create_item_widget(item, order['id'])
+            key = (item['id'], item['name'])
+            if key not in grouped_items:
+                grouped_items[key] = {
+                    'count': 0,
+                    'completed': 0,
+                    'category': item['category'],
+                    'unique_ids': []
+                }
+            grouped_items[key]['count'] += 1
+            grouped_items[key]['completed'] += 1 if item['completed'] else 0
+            grouped_items[key]['unique_ids'].append(item['unique_id'])
+        
+        # Create widgets for each item (grouped)
+        for (item_id, item_name), data in grouped_items.items():
+            quantity = data['count']
+            completed = data['completed']
+            item_widget = self.create_item_widget(
+                order['id'],
+                item_id,
+                item_name,
+                data['category'],
+                quantity,
+                completed,
+                data['unique_ids']
+            )
             items_layout.addWidget(item_widget)
         
         # Add scroll area for items if there are many
-        if len(order['items']) > 4:
+        if len(grouped_items) > 4:
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
             scroll.setWidget(items_container)
@@ -343,7 +396,7 @@ class KitchenScreen(QMainWindow):
         
         return frame
     
-    def create_item_widget(self, item, order_id):
+    def create_item_widget(self, order_id, item_id, item_name, category, quantity, completed_count, unique_ids):
         widget = QWidget()
         layout = QHBoxLayout()
         layout.setContentsMargins(5, 5, 5, 5)
@@ -353,7 +406,7 @@ class KitchenScreen(QMainWindow):
         status_indicator = QFrame()
         status_indicator.setFixedSize(8, 30)
         status_indicator.setStyleSheet(f"""
-            background-color: {'#4CAF50' if item['completed'] else '#FF9800'};
+            background-color: {'#4CAF50' if completed_count == quantity else '#FF9800'};
             border-radius: 4px;
         """)
         layout.addWidget(status_indicator)
@@ -362,14 +415,15 @@ class KitchenScreen(QMainWindow):
         info_layout = QVBoxLayout()
         info_layout.setSpacing(2)
         
-        name_label = QLabel(item['name'])
+        name_text = f"{item_name} ×{quantity}" if quantity > 1 else item_name
+        name_label = QLabel(name_text)
         name_label.setStyleSheet(f"""
             font-size: 16px;
-            color: {'#9E9E9E' if item['completed'] else 'white'};
-            text-decoration: {'line-through' if item['completed'] else 'none'};
+            color: {'#9E9E9E' if completed_count == quantity else 'white'};
+            text-decoration: {'line-through' if completed_count == quantity else 'none'};
         """)
         
-        category_label = QLabel(f"📋 {item['category']}")
+        category_label = QLabel(f"📋 {category}")
         category_label.setStyleSheet("""
             color: #757575;
             font-size: 12px;
@@ -379,8 +433,18 @@ class KitchenScreen(QMainWindow):
         info_layout.addWidget(category_label)
         layout.addLayout(info_layout)
         
+        # Progress/completion
+        if quantity > 1:
+            progress_label = QLabel(f"{completed_count}/{quantity}")
+            progress_label.setStyleSheet(f"""
+                color: {'#4CAF50' if completed_count == quantity else '#FF9800'};
+                font-size: 14px;
+                font-weight: bold;
+            """)
+            layout.addWidget(progress_label)
+        
         # Complete button
-        if not item['completed']:
+        if completed_count < quantity:
             complete_btn = QPushButton()
             complete_btn.setIcon(self.style().standardIcon(QStyle.SP_DialogApplyButton))
             complete_btn.setStyleSheet("""
@@ -395,8 +459,8 @@ class KitchenScreen(QMainWindow):
                     color: #388E3C;
                 }
             """)
-            complete_btn.clicked.connect(lambda _, oid=order_id, iid=item['id'], iname=item['name']: 
-                                        self.complete_item(oid, iid, iname))
+            # Modified click handler to prevent multiple completions
+            complete_btn.clicked.connect(lambda: self.single_item_completion(order_id, item_id, unique_ids))
             layout.addWidget(complete_btn, alignment=Qt.AlignRight)
         else:
             completed_label = QLabel("✔ Done")
@@ -414,19 +478,78 @@ class KitchenScreen(QMainWindow):
         
         return widget
     
-    def complete_item(self, order_id, item_id, item_name):
+
+    def single_item_completion(self, order_id, item_id, unique_ids):
         try:
-            # Optimistic UI update
+        # Optimistic UI update (temporarily mark one item complete)
+            item_completed = False
             for order in self.orders:
                 if order['id'] == order_id:
                     for item in order['items']:
-                        if item['id'] == item_id:
+                        if (str(item['id']) == str(item_id) and
+                        item['unique_id'] in unique_ids and
+                        not item['completed']):
                             item['completed'] = True
+                            item_completed = True
+                            break
+                    if item_completed:
+                        break
+        
+            if not item_completed:
+                QMessageBox.information(self, "Info", "All items in this group are already completed")
+                return
+
+            # Immediately refresh the display
+            self.display_orders()
+
+            # Send completion to server
+            response = requests.post(
+            f"http://{self.server_ip}:5000/api/kds/complete_item",
+            json={'order_id': order_id, 'item_id': item_id},
+            timeout=3  # Add timeout to prevent hanging
+            )
+
+            # Force a full refresh from server after completion
+            QTimer.singleShot(200, self.fetch_orders)  # Refresh 0.5s after completion
+
+        except Exception as e:
+            # Revert UI if failed
+            for order in self.orders:
+                if order['id'] == order_id:
+                    for item in order['items']:
+                        if str(item['id']) == str(item_id) and item['unique_id'] in unique_ids:
+                            item['completed'] = False
                             break
                     break
             self.display_orders()
+            QMessageBox.warning(self, "Error", f"Completion failed: {str(e)}")
+
+
+    '''
+    def single_item_completion(self, order_id, item_id, unique_ids):
+        """Handle completion of just one item from a group"""
+        try:
+            # Find the first incomplete item in this group
+            item_to_complete = None
+            for order in self.orders:
+                if order['id'] == order_id:
+                    for item in order['items']:
+                        if (item['id'] == item_id and 
+                            item['unique_id'] in unique_ids and 
+                            not item['completed']):
+                            item['completed'] = True
+                            item_to_complete = item
+                            break
+                    if item_to_complete:
+                        break
             
-            # Send request to server
+            if not item_to_complete:
+                QMessageBox.information(self, "Info", "All items in this group are already completed")
+                return
+            
+            self.display_orders()
+            
+            # Send completion to server
             url = f"http://{self.server_ip}:5000/api/kds/complete_item"
             data = {
                 'order_id': order_id,
@@ -439,7 +562,7 @@ class KitchenScreen(QMainWindow):
                 for order in self.orders:
                     if order['id'] == order_id:
                         for item in order['items']:
-                            if item['id'] == item_id:
+                            if item['id'] == item_id and item['unique_id'] == item_to_complete['unique_id']:
                                 item['completed'] = False
                                 break
                         break
@@ -449,7 +572,7 @@ class KitchenScreen(QMainWindow):
         except Exception as e:
             print(f"Error completing item: {e}")
             QMessageBox.warning(self, "Error", f"Failed to complete item: {str(e)}")
-    
+   ''' 
     def complete_order(self, order_id):
         # Check if there are pending items
         order = next((o for o in self.orders if o['id'] == order_id), None)

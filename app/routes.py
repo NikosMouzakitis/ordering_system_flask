@@ -88,7 +88,7 @@ def create_order():
         socketio.emit('update_tables')
         socketio.emit('new_order', {
             'table_id': table_id,
-            'station': 'kitchen' if any(i.category not in ['Drink', 'Dessert'] 
+            'station': 'kitchen' if any(i.category not in ['Drink', 'Dessert',"Drinks"] 
                       for i in kds_order.items) else 'bar'
         })
         return jsonify({"status": "success", "order_id": new_order.id})
@@ -242,7 +242,7 @@ def create_order_flutter():
         db.session.commit()
 
         # Determine station
-        has_kitchen_items = any(i.category not in ['Drink', 'Dessert'] 
+        has_kitchen_items = any(i.category not in ['Drink', 'Dessert', "Drinks"] 
                               for i in kds_order.items)
         station = 'kitchen' if has_kitchen_items else 'bar'
 
@@ -466,8 +466,8 @@ def get_kds_orders():
             'completed_at': item.completed_at.isoformat() if item.completed_at else None
         } for item in order.items if (
             station == 'all' or
-            (station == 'kitchen' and item.category not in ['Drink', 'Dessert']) or
-            (station == 'bar' and item.category in ['Drink', 'Dessert'])
+            (station == 'kitchen' and item.category not in ['Drink', 'Dessert', "Drinks"])
+            or (station == 'bar' and item.category in ['Drink', 'Dessert', "Drinks"])
         )]
 
         if items:
