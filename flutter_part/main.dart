@@ -97,71 +97,67 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-void _showOrderOverlay(BuildContext context, int tableId) async {
-  try {
-    final response = await http.get(Uri.parse('http://$serverIp:5000/flutter_api/get_orders/$tableId'));
+  void _showOrderOverlay(BuildContext context, int tableId) async {
+    try {
+      final response = await http.get(Uri.parse('http://$serverIp:5000/flutter_api/get_orders/$tableId'));
 
-    if (response.statusCode == 200) {
-      final order = json.decode(response.body);
+      if (response.statusCode == 200) {
+        final order = json.decode(response.body);
 
-      // Ensure that we check if 'orders' exists and is a non-empty list
-      if (order['orders'] != null && order['orders'].isNotEmpty) {
-        _orderOverlayEntry = OverlayEntry(
-          builder: (context) => Positioned(
-            top: 100,
-            left: 50,
-            right: 50,
-            child: Material(
-              elevation: 10,
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Table $tableId Order', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                    const SizedBox(height: 10),
-                    ...order['orders'].map<Widget>((item) => Text('- $item')).toList(),
-                  ],
+        if (order['orders'] != null && order['orders'].isNotEmpty) {
+          _orderOverlayEntry = OverlayEntry(
+            builder: (context) => Positioned(
+              top: 100,
+              left: 50,
+              right: 50,
+              child: Material(
+                elevation: 10,
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Table $tableId Order', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      const SizedBox(height: 10),
+                      ...order['orders'].map<Widget>((item) => Text('- $item')).toList(),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-
-        Overlay.of(context).insert(_orderOverlayEntry!);
-      } else {
-        // If no items, show a default message or handle it accordingly
-        _orderOverlayEntry = OverlayEntry(
-          builder: (context) => Positioned(
-            top: 100,
-            left: 50,
-            right: 50,
-            child: Material(
-              elevation: 10,
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Text('Table has no active orders.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  ],
+          );
+          Overlay.of(context).insert(_orderOverlayEntry!);
+        } else {
+          _orderOverlayEntry = OverlayEntry(
+            builder: (context) => Positioned(
+              top: 100,
+              left: 50,
+              right: 50,
+              child: Material(
+                elevation: 10,
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Text('Table has no active orders.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-        Overlay.of(context).insert(_orderOverlayEntry!);
+          );
+          Overlay.of(context).insert(_orderOverlayEntry!);
+        }
       }
+    } catch (e) {
+      print('Error fetching order: $e');
     }
-  } catch (e) {
-    print('Error fetching order: $e');
   }
-}
- 
 
   void _removeOrderOverlay() {
     _orderOverlayEntry?.remove();
@@ -327,38 +323,62 @@ class _OrderScreenState extends State<OrderScreen> {
     }
   }
 
-  void _submitOrder() async {
-    final filtered = selectedItemCounts.entries.where((e) => e.value > 0).toList();
-    if (filtered.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Please select at least one item')));
-      return;
-    }
+  double _calculateTotal() {
+    double total = 0.0;
+    selectedItemCounts.forEach((itemId, quantity) {
+      final item = menu.entries
+          .expand((e) => e.value)
+          .firstWhere((e) => e['id'] == itemId);
+      total += (item['price'] as double) * quantity;
+    });
+    return total;
+  }
 
-    final List<int> flatItemIds = [];
-    for (var entry in filtered) {
-      flatItemIds.addAll(List.generate(entry.value, (_) => entry.key));
-    }
 
+
+void _submitOrder() async {
+  final filtered = selectedItemCounts.entries.where((e) => e.value > 0).toList();
+  if (filtered.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select at least one item')),
+    );
+    return;
+  }
+
+  // Convert to list of item IDs (including duplicates for quantity)
+  final List<int> itemIds = [];
+  for (var entry in filtered) {
+    itemIds.addAll(List.filled(entry.value, entry.key));
+  }
+
+  try {
     final response = await http.post(
       Uri.parse('http://${widget.serverIp}:5000/flutter_api/order'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'table_id': widget.tableId,
-        'items': flatItemIds,
+        'items': itemIds,
       }),
     );
 
+    final responseData = json.decode(response.body);
+    
     if (response.statusCode == 200) {
-      setState(() => selectedItemCounts.clear());
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Order submitted')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Order #${responseData['order_id']} submitted')),
+      );
       Navigator.pop(context, true);
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Failed to submit order')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${responseData['message']}')),
+      );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Connection error: $e')),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -369,6 +389,7 @@ class _OrderScreenState extends State<OrderScreen> {
       ),
       body: Column(
         children: [
+          // Menu items (takes remaining space)
           Expanded(
             child: ListView(
               children: menu.entries.map((entry) {
@@ -381,6 +402,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     final count = selectedItemCounts[itemId] ?? 0;
                     return ListTile(
                       title: Text(item['name']),
+                      subtitle: Text('\$${item['price'].toStringAsFixed(2)}'),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -406,31 +428,68 @@ class _OrderScreenState extends State<OrderScreen> {
               }).toList(),
             ),
           ),
+          
+          // Selected items section (fixed at bottom)
           Container(
             color: Colors.brown[50],
-            padding: const EdgeInsets.all(8.0),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
+            ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Selected Items:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                Wrap(
-                  spacing: 8.0,
-                  children: selectedItemCounts.entries.map((entry) {
-                    final item = menu.entries
-                        .expand((e) => e.value)
-                        .firstWhere((e) => e['id'] == entry.key);
-                    return Chip(label: Text('${item['name']} x${entry.value}'));
-                  }).toList(),
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('Selected Items:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
-                ElevatedButton(
-                  onPressed: selectedItemCounts.values.any((q) => q > 0)
-                      ? _submitOrder
-                      : null,
-                  child: const Text('Submit Order'),
+                // Total price display
+                Text(
+                  'Total: \$${_calculateTotal().toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.green,
+                  ),
                 ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Back'),
+                // Scrollable selected items
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 8.0,
+                      runSpacing: 4.0,
+                      alignment: WrapAlignment.center,
+                      children: selectedItemCounts.entries.map((entry) {
+                        final item = menu.entries
+                            .expand((e) => e.value)
+                            .firstWhere((e) => e['id'] == entry.key);
+                        return Chip(
+                          label: Text('${item['name']} x${entry.value}'),
+                          deleteIcon: const Icon(Icons.close, size: 18),
+                          onDeleted: () => setState(() => selectedItemCounts.remove(entry.key)),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                // Buttons row
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Back'),
+                      ),
+                      ElevatedButton(
+                        onPressed: selectedItemCounts.values.any((q) => q > 0)
+                            ? _submitOrder
+                            : null,
+                        child: const Text('Submit Order'),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -440,4 +499,3 @@ class _OrderScreenState extends State<OrderScreen> {
     );
   }
 }
-

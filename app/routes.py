@@ -1,14 +1,21 @@
 from flask import Blueprint, jsonify, render_template, request
-from .models import Table, MenuItem, Order, OrderItem
+from .models import Table, MenuItem, Order, OrderItem, KitchenOrderItem,KitchenOrder
 from . import db, socketio
+from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for
+from flask_login import login_required, current_user
+from sqlalchemy import JSON  
+from datetime import datetime
 
 main = Blueprint('main', __name__)
 
+
 @main.route('/')
+@login_required
 def index():
     return render_template('index.html')
 
 @main.route('/tables', methods=['GET'])
+@login_required
 def get_tables():
     tables = Table.query.all()
     return {"tables": [{"id": t.id, "number": t.number, "status": t.status} for t in tables]}
@@ -37,37 +44,61 @@ def get_menu():
     return jsonify(categories)
 
 @main.route('/order', methods=['POST'])
+@login_required
 def create_order():
     table_id = request.form.get('table_id')
     item_ids = request.form.getlist('items[]')
-    print(f"TableID: {table_id}, Item IDs: {item_ids}")
-
-    # Create the order
+    
+    # Create original order
     new_order = Order(table_id=table_id)
     db.session.add(new_order)
-    db.session.flush() # get new order's id for ordered items.
+    db.session.flush()
 
-    # Link menu items to the order
+    # Create KitchenOrder with proper relational items
+    kds_order = KitchenOrder(table_id=table_id)
+    db.session.add(kds_order)
+    db.session.flush()  # Get the kds_order.id
+    
+    # Add items to both Order and KitchenOrder
     for item_id in item_ids:
-        order_item = OrderItem(order_id=new_order.id, menu_item_id=item_id)
-        print(f"adding Orderitem {new_order.id}, menu_item id: {item_id}")
-        db.session.add(order_item)
+        menu_item = MenuItem.query.get(item_id)
+        if menu_item:
+            # Original order items
+            db.session.add(OrderItem(
+                order_id=new_order.id, 
+                menu_item_id=item_id
+            ))
+            
+            # Kitchen display items
+            db.session.add(KitchenOrderItem(
+                order_id=kds_order.id,
+                menu_item_id=menu_item.id,
+                name=menu_item.name,
+                category=menu_item.category,
+                completed=False
+            ))
 
-    # Change the table status to "Occupied"
+    # Update table status
     table = Table.query.get(table_id)
     if table:
         table.status = "Occupied"
-    
+
     try:
         db.session.commit()
         socketio.emit('update_tables')
-        print("commited okay")
+        socketio.emit('new_order', {
+            'table_id': table_id,
+            'station': 'kitchen' if any(i.category not in ['Drink', 'Dessert'] 
+                      for i in kds_order.items) else 'bar'
+        })
+        return jsonify({"status": "success", "order_id": new_order.id})
     except Exception as e:
-        print(f"Error commiting: {e}")
-    socketio.emit('new_order', {'table_id':table_id, 'status':'Occupied'})
-    return jsonify({"status": "success", "order_id": new_order.id})
+        db.session.rollback()
+        return jsonify({"status": "error", "error": str(e)}), 500
+
 
 @main.route('/free_table', methods=['POST'])
+@login_required
 def free_table():
     print("Free table pressed")
     table_id = request.form.get('table_id')
@@ -138,7 +169,11 @@ def get_orders(table_id):
 
     return jsonify({"orders": order_items})
 
-
+@main.route('/check_auth')
+def check_auth():
+    return jsonify({
+        'authenticated': current_user.is_authenticated
+    })
 
 #### FLUTTER MOBILE API ######
 @main.route('/flutter_api/free_table', methods=['POST'])
@@ -159,34 +194,77 @@ def free_table_flutter():
 
 @main.route('/flutter_api/order', methods=['POST'])
 def create_order_flutter():
-    data = request.get_json()
-    table_id = data.get('table_id')
-    item_ids = data.get('items', [])
-    print("received order from flutter")
-    print(data)
-    print(table_id)
-    print(item_ids)
-
-    new_order = Order(table_id=table_id)
-    db.session.add(new_order)
-    db.session.flush()
-
-    for item_id in item_ids:
-        db.session.add(OrderItem(order_id=new_order.id, menu_item_id=item_id))
-
-    table = Table.query.get(table_id)
-    if table:
-        table.status = "Occupied"
-
     try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "No data provided"}), 400
+
+        table_id = data.get('table_id')
+        item_ids = data.get('items', [])
+        
+        if not table_id or not item_ids:
+            return jsonify({"status": "error", "message": "Missing table_id or items"}), 400
+
+        # Create original order
+        new_order = Order(table_id=table_id)
+        db.session.add(new_order)
+        db.session.flush()
+
+        # Create KitchenOrder
+        kds_order = KitchenOrder(table_id=table_id)
+        db.session.add(kds_order)
+        db.session.flush()
+
+        # Add items to both Order and KitchenOrder
+        for item_id in item_ids:
+            menu_item = MenuItem.query.get(item_id)
+            if menu_item:
+                # Original order items
+                db.session.add(OrderItem(
+                    order_id=new_order.id, 
+                    menu_item_id=item_id
+                ))
+                
+                # Kitchen display items
+                db.session.add(KitchenOrderItem(
+                    order_id=kds_order.id,
+                    menu_item_id=menu_item.id,
+                    name=menu_item.name,
+                    category=menu_item.category,
+                    completed=False
+                ))
+
+        # Update table status
+        table = Table.query.get(table_id)
+        if table:
+            table.status = "Occupied"
+
         db.session.commit()
-        socketio.emit('update_tables',{'table_id':table_id})
-        socketio.emit('new_order', {'table_id':table_id, 'status':'Occupied'})
-        return jsonify({"status": "success", "order_id": new_order.id})
+
+        # Determine station
+        has_kitchen_items = any(i.category not in ['Drink', 'Dessert'] 
+                              for i in kds_order.items)
+        station = 'kitchen' if has_kitchen_items else 'bar'
+
+        socketio.emit('update_tables')
+        socketio.emit('new_order', {
+            'table_id': table_id,
+            'station': station
+        }, namespace='/')
+
+        return jsonify({
+            "status": "success", 
+            "order_id": new_order.id,
+            "kds_order_id": kds_order.id
+        })
+
     except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 500
-
-
+        db.session.rollback()
+        return jsonify({
+            "status": "error", 
+            "error": str(e),
+            "message": "Failed to create order"
+        }), 500
 
 @main.route('/flutter_api/menu', methods=['GET'])
 def get_menu_flutter():
@@ -293,3 +371,113 @@ def generate_receipt_preview(table_id):
         'total': round(total, 2)
     })
 
+
+
+
+
+
+@socketio.on('connect')
+def handle_connect():
+    print('KDS Client connected')
+
+@socketio.on('new_order')
+def handle_new_order(data):
+    emit('new_order', data, broadcast=True)
+
+@socketio.on('order_update')
+def handle_order_update(data):
+    emit('order_update', data, broadcast=True)
+
+
+
+###routes for the kitchen display system ###############
+@main.route('/api/kds/complete_item', methods=['POST'])
+def complete_kds_item():
+    data = request.get_json()
+    order_id = data['order_id']
+    item_id = data['item_id']
+    
+    item = KitchenOrderItem.query.filter_by(
+        order_id=order_id,
+        menu_item_id=item_id,
+        completed=False
+    ).first()
+    
+    if not item:
+        return jsonify({"status": "error", "message": "Item not found or already completed"}), 404
+    
+    item.completed = True
+    item.completed_at = datetime.utcnow()
+    
+    # Check if all items are now completed
+    order = KitchenOrder.query.get(order_id)
+    if all(i.completed for i in order.items):
+        order.status = 'completed'
+        order.completed_at = datetime.utcnow()
+    
+    db.session.commit()
+    
+    socketio.emit('item_completed', {
+        'order_id': order_id,
+        'item_id': item_id
+    }, namespace='/')
+    
+    return jsonify({"status": "success"})
+
+@main.route('/api/kds/complete', methods=['POST'])
+def complete_kds_order():
+    data = request.get_json()
+    order_id = data['order_id']
+    
+    order = KitchenOrder.query.get(order_id)
+    if not order:
+        return jsonify({"status": "error", "message": "Order not found"}), 404
+    
+    # Mark all items as completed
+    for item in order.items:
+        if not item.completed:
+            item.completed = True
+            item.completed_at = datetime.utcnow()
+    
+    order.status = 'completed'
+    order.completed_at = datetime.utcnow()
+    
+    db.session.commit()
+    
+    socketio.emit('order_completed', {
+        'order_id': order_id
+    }, namespace='/')
+    
+    return jsonify({"status": "success"})
+
+@main.route('/api/kds/orders')
+def get_kds_orders():
+    station = request.args.get('station', 'kitchen')
+    query = KitchenOrder.query.filter_by(status='pending')
+
+    result = []
+    for order in query:
+        # Filter items by station
+        items = [{
+            'id': item.menu_item_id,
+            'name': item.name,
+            'category': item.category,
+            'completed': item.completed,
+            'completed_at': item.completed_at.isoformat() if item.completed_at else None
+        } for item in order.items if (
+            station == 'all' or
+            (station == 'kitchen' and item.category not in ['Drink', 'Dessert']) or
+            (station == 'bar' and item.category in ['Drink', 'Dessert'])
+        )]
+
+        if items:
+            wait_time = (datetime.utcnow() - order.created_at).seconds // 60
+            result.append({
+                'id': order.id,
+                'table_id': order.table_id,
+                'items': items,
+                'wait_time': f"{wait_time}m",
+                'station': station
+            })
+
+    return jsonify(result)
