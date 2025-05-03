@@ -175,6 +175,121 @@ def check_auth():
         'authenticated': current_user.is_authenticated
     })
 
+
+
+
+@main.route('/get_order_details/<int:table_id>', methods=['GET'])
+@login_required
+def get_order_details(table_id):
+    """Get detailed order information including order IDs for modification"""
+    orders = Order.query.filter_by(table_id=table_id, status='open').all()
+    order_data = []
+    
+    for order in orders:
+        items = []
+        for item in order.items:
+            if item.menu_item:
+                items.append({
+                    'order_item_id': item.id,
+                    'menu_item_id': item.menu_item.id,
+                    'name': item.menu_item.name,
+                    'price': item.menu_item.price
+                })
+        
+        order_data.append({
+            'order_id': order.id,
+            'items': items
+        })
+    
+    return jsonify({"orders": order_data})
+
+@main.route('/modify_order', methods=['POST'])
+@login_required
+def modify_order():
+    """Handle order modifications (add/remove items) without KDS integration"""
+    try:
+        data = request.get_json()
+        table_id = data.get('table_id')
+        order_id = data.get('order_id')
+        items_to_add = data.get('add_items', [])
+        items_to_remove = data.get('remove_items', [])
+        
+        # Get the order
+        order = Order.query.get(order_id)
+        if not order or order.table_id != table_id:
+            return jsonify({"status": "error", "message": "Invalid order"}), 400
+        
+        # Remove items
+        for item_id in items_to_remove:
+            item = OrderItem.query.filter_by(order_id=order_id, id=item_id).first()
+            if item:
+                db.session.delete(item)
+        
+        # Add new items
+        for item_id in items_to_add:
+            menu_item = MenuItem.query.get(item_id)
+            if menu_item:
+                db.session.add(OrderItem(
+                    order_id=order_id,
+                    menu_item_id=item_id
+                ))
+        
+        db.session.commit()
+        
+        # Emit table update
+        socketio.emit('update_tables')
+        
+        return jsonify({"status": "success"})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@main.route('/cancel_order/<int:order_id>', methods=['POST'])
+@login_required
+def cancel_order(order_id):
+    """Cancel an entire order without KDS integration"""
+    try:
+        order = Order.query.get(order_id)
+        if not order:
+            return jsonify({"status": "error", "message": "Order not found"}), 404
+        
+        # Delete order items
+        OrderItem.query.filter_by(order_id=order_id).delete()
+        
+        # Delete the order itself
+        db.session.delete(order)
+        
+        # Check if table has no more orders
+        remaining_orders = Order.query.filter_by(
+            table_id=order.table_id,
+            status='open'
+        ).count()
+        
+        if remaining_orders == 0:
+            table = Table.query.get(order.table_id)
+            if table:
+                table.status = 'Available'
+        
+        db.session.commit()
+        socketio.emit('update_tables')
+        return jsonify({"status": "success"})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+
+
+
+
+
+
+
+
+
 #### FLUTTER MOBILE API ######
 @main.route('/flutter_api/free_table', methods=['POST'])
 def free_table_flutter():

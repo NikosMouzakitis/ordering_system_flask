@@ -389,6 +389,13 @@ hr {
                     <button id="order-button" class="btn btn-kds-primary mb-3" onclick="initiateOrder()">
                         Start Order
                     </button>
+
+
+		    <div id="modify-controls" class="initially-hidden mt-3">
+    <button class="btn btn-warning" onclick="showModifyOptions()">Modify Order</button>
+    <button class="btn btn-danger" onclick="cancelCurrentOrder()">Cancel Order</button>
+</div>
+
                     
                     <div id="menu-section" class="initially-hidden">
                         <div id="categories-container"></div>
@@ -558,68 +565,180 @@ hr {
                 });
         }
 
-// Select a table
+// Add to existing script section
+let currentOrderId = null;
+
+// Modified selectTable function to load order details
 function selectTable(tableId, tableNumber) {
     selectedTable = tableId;
     selectedTableNumber = tableNumber;
     
-    // Update UI
     $("#selected-table-number").text(tableNumber);
     $("#order-section").show();
     $("#menu-section").hide();
     $("#order-button").show();
-    
-    // Show order display area
     $("#order-display").show();
     $("#order-table-number").text(tableNumber);
     
-    // Load and display orders for this table
-    fetch(`/get_orders/${tableId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
+    // Load order details including order ID
+    fetch(`/get_order_details/${tableId}`)
+        .then(response => response.json())
         .then(data => {
             const orderItems = $("#current-order-items");
             orderItems.empty();
             
-            console.log("API Response:", data); // Debug log
-            
-            // Check if we got valid orders data
-            if (data.orders && Array.isArray(data.orders)) {
-                if (data.orders.length > 0) {
-                    // Since your API returns just names, we'll display them
-                    data.orders.forEach(itemName => {
-                        orderItems.append(`
-                            <div class="order-item">
-                                <span>${itemName}</span>
-                            </div>
-                        `);
-                    });
-                } else {
-                    orderItems.html('<div class="text-muted">No active orders for this table</div>');
+            if (data.orders && data.orders.length > 0) {
+                // For simplicity, we'll use the first order if multiple exist
+                currentOrderId = data.orders[0].order_id;
+                
+                data.orders[0].items.forEach(item => {
+                    orderItems.append(`
+                        <div class="order-item" data-order-item-id="${item.order_item_id}">
+                            <span>${item.name}</span>
+                            <span>$${item.price.toFixed(2)}</span>
+                            <span class="remove-item" onclick="removeExistingItem(${item.order_item_id}, '${item.name.replace(/'/g, "\\'")}')">×</span>
+                        </div>
+                    `);
+                });
+                
+                // Show modify controls if order exists
+                $("#order-button").text("Modify Order").off('click').on('click', showModifyOptions);
+                $("#order-button").show();
+                
+                // Show admin controls
+                const hasOrders = data.orders[0].items.length > 0;
+                $("#free-table-button").toggle(hasOrders);
+                $("#print-receipt-button").toggle(hasOrders);
+                $("#preview-receipt-button").toggle(hasOrders);
+                
+                if ({{ 'true' if current_user.is_authenticated and current_user.role == 'admin' else 'false' }}) {
+                    $("#admin-controls").toggle(hasOrders);
                 }
             } else {
-                console.error('Unexpected API response format:', data);
-                orderItems.html('<div class="text-danger">Unexpected data format</div>');
-            }
-
-            // Show/hide admin controls
-            const hasOrders = data.orders && data.orders.length > 0;
-            $("#free-table-button").toggle(hasOrders);
-            $("#print-receipt-button").toggle(hasOrders);
-            $("#preview-receipt-button").toggle(hasOrders);
-            
-            if ({{ 'true' if current_user.is_authenticated and current_user.role == 'admin' else 'false' }}) {
-                $("#admin-controls").toggle(hasOrders);
+                // No existing order - show standard new order button
+                currentOrderId = null;
+                $("#order-button").text("Start Order").off('click').on('click', initiateOrder);
+                $("#current-order-items").html('<div class="text-muted">No active orders for this table</div>');
+                
+                // Hide admin controls
+                $("#admin-controls").hide();
             }
         })
         .catch(error => {
             console.error("Error loading orders:", error);
             $("#current-order-items").html('<div class="text-danger">Error loading orders. Please try again.</div>');
         });
+}
+
+// Show modify options
+function showModifyOptions() {
+    // Clear any existing selected items
+    selectedItems = [];
+    renderSelectedItems();
+
+    // Hide the order button and show menu section
+    $("#order-button").hide();
+    $("#menu-section").show();
+
+    // Render categories
+    const categories = Object.keys(menuData);
+    const container = $("#categories-container");
+    container.empty();
+
+    categories.forEach(category => {
+        container.append(`
+            <div class="menu-category" onclick="showCategoryItems('${category}')">
+                ${category}
+            </div>
+        `);
+    });
+
+    // Show first category by default
+    if (categories.length > 0) {
+        showCategoryItems(categories[0]);
+    }
+
+    // Clear any existing "Cancel Selected Items" button before adding a new one
+    $("#selected-items-list").prev(".d-flex").remove();
+
+    // Add a single "Cancel Entire Order" button (only once)
+    $("#selected-items-list").before(`
+        <div class="d-flex justify-content-between mb-3">
+            <button class="btn btn-kds-danger" onclick="cancelCurrentOrder()">Cancel Entire Order</button>
+        </div>
+    `);
+}
+
+
+// Remove existing item from order
+function removeExistingItem(itemId, itemName) {
+    if (confirm(`Remove ${itemName} from order?`)) {
+        modifyOrder([], [itemId]);
+    }
+}
+
+// Modify order (add/remove items)
+function modifyOrder(itemsToAdd, itemsToRemove) {
+    if (!selectedTable || !currentOrderId) {
+        alert("No table or order selected");
+        return;
+    }
+    
+    fetch('/modify_order', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            table_id: selectedTable,
+            order_id: currentOrderId,
+            add_items: itemsToAdd,
+            remove_items: itemsToRemove
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            alert("Order updated successfully!");
+            selectedItems = [];
+            $("#menu-section").hide();
+            $("#order-button").show();
+            fetchTables();
+        } else {
+            alert("Failed to update order: " + (data.message || "Unknown error"));
+        }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("Failed to update order");
+    });
+}
+
+// Cancel entire order
+function cancelCurrentOrder() {
+    if (!currentOrderId || !confirm("Cancel this entire order?")) {
+        return;
+    }
+    
+    fetch(`/cancel_order/${currentOrderId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            alert("Order cancelled successfully!");
+            currentOrderId = null;
+            $("#menu-section").hide();
+            $("#order-button").text("Start Order").off('click').on('click', initiateOrder);
+            fetchTables();
+        } else {
+            alert("Failed to cancel order: " + (data.message || "Unknown error"));
+        }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("Failed to cancel order");
+    });
 }
 
 
@@ -707,32 +826,41 @@ function selectTable(tableId, tableNumber) {
         }
 
         // Confirm order
-        function confirmOrder() {
-            if (!selectedTable) {
-                alert("Please select a table first");
-                return;
-            }
-            
-            if (selectedItems.length === 0) {
-                alert("Please add at least one item to the order");
-                return;
-            }
-            
-            const itemIds = selectedItems.map(item => item.id);
-            
-            $.post("/order", {
-                table_id: selectedTable,
-                items: itemIds
-            })
-            .then(response => {
-                alert(`Order placed for Table ${selectedTableNumber}!`);
-                selectedItems = [];
-                $("#menu-section").hide();
-                $("#order-button").show();
-                fetchTables();
-            })
-            .catch(() => alert("Failed to place order"));
-        }
+
+// Update confirmOrder function to handle both new and modified orders
+function confirmOrder() {
+    if (!selectedTable) {
+        alert("Please select a table first");
+        return;
+    }
+    
+    if (selectedItems.length === 0) {
+        alert("Please add at least one item to the order");
+        return;
+    }
+    
+    const itemIds = selectedItems.map(item => item.id);
+    
+    if (currentOrderId) {
+        // Modify existing order
+        modifyOrder(itemIds, []);
+    } else {
+        // Create new order (existing code)
+        $.post("/order", {
+            table_id: selectedTable,
+            items: itemIds
+        })
+        .then(response => {
+            alert(`Order placed for Table ${selectedTableNumber}!`);
+            selectedItems = [];
+            $("#menu-section").hide();
+            $("#order-button").show();
+            fetchTables();
+        })
+        .catch(() => alert("Failed to place order"));
+    }
+}
+
 
         // Free table functions
         function openFreeTableModal() {

@@ -3,105 +3,209 @@
 {% block title %}Statistics{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>Daily Statistics</h2>
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Daily Statistics</h1>
+        <form method="POST" class="d-flex">
+            <input type="date" name="date" id="date" value="{{ selected_date }}" 
+                   class="form-control" style="width: 200px; margin-right: 10px;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-calendar-alt"></i> Load Data
+            </button>
+        </form>
+    </div>
     
-    <form method="POST" class="mb-4">
-        <div class="form-group">
-            <label for="date">Select Date:</label>
-            <input type="date" name="date" id="date" value="{{ selected_date }}" class="form-control" style="width: 200px;">
-            <button type="submit" class="btn btn-primary mt-2">Load Data</button>
-        </div>
-    </form>
-    
+    <!-- Summary Row -->
     <div class="row">
-        <!-- Left Column (Summary) -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h4>Total Sales: ${{ "%.2f"|format(total_sales) }}</h4>
-                </div>
-            </div>
-            
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h4>Top Selling Items</h4>
-                </div>
+        <!-- Total Sales Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2 stat-card">
                 <div class="card-body">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Item</th>
-                                <th>Category</th>
-                                <th>Quantity</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item_name, data in item_sales %}
-                            <tr>
-                                <td>{{ item_name }}</td>
-                                <td>{{ data.category }}</td>
-                                <td>{{ data.count }}</td>
-                                <td>${{ "%.2f"|format(data.count * data.price) }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h4>Summary by Table</h4>
-                </div>
-                <div class="card-body">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Table</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for table_id, details in table_summary.items() %}
-                            <tr>
-                                <td>Table {{ table_id }}</td>
-                                <td>${{ "%.2f"|format(details.total) }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Sales</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                ${{ "%.2f"|format(total_sales) }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <!-- Right Column (Detailed Orders) -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h4>Detailed Orders</h4>
+        <!-- Tables Served Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2 stat-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Tables Served</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ table_summary|length }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-utensils fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body" style="max-height: 600px; overflow-y: auto;">
-                    {% for order in order_breakdown %}
-                    <div class="mb-4 border-bottom pb-3">
-                        <h5>Table {{ order.table_id }} - {{ order.timestamp }} - Total: ${{ "%.2f"|format(order.order_total) }}</h5>
-                        <table class="table table-sm">
+            </div>
+        </div>
+        
+        <!-- Items Sold Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2 stat-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Items Sold</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ item_sales|sum(attribute="1.count") }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Average per Table -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2 stat-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Avg. per Table</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                ${{ "%.2f"|format(total_sales/table_summary|length if table_summary|length > 0 else 0) }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calculator fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Content Row -->
+    <div class="row">
+        <!-- Top Selling Items -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Top Selling Items</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
                             <thead>
                                 <tr>
                                     <th>Item</th>
-                                    <th>Price</th>
+                                    <th>Category</th>
+                                    <th>Qty</th>
+                                    <th>Total</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in order.order_items %}
+                                {% for item_name, data in item_sales %}
                                 <tr>
-                                    <td>{{ item.name }}</td>
-                                    <td>${{ "%.2f"|format(item.price) }}</td>
+                                    <td>{{ item_name }}</td>
+                                    <td>{{ data.category }}</td>
+                                    <td>{{ data.count }}</td>
+                                    <td>${{ "%.2f"|format(data.count * data.price) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tables Summary -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Tables Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Total</th>
+                                    <th>Items</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for table_id, details in table_summary.items() %}
+                                <tr>
+                                    <td>Table {{ table_id }}</td>
+                                    <td>${{ "%.2f"|format(details.total) }}</td>
+                                    <td>{{ details.items_summary|length }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detailed Orders -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Detailed Orders</h6>
+                </div>
+                <div class="card-body scrollable-container">
+                    {% for order in order_breakdown %}
+                    <div class="order-breakdown">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">
+                                <i class="fas fa-table"></i> Table {{ order.table_id }} 
+                                <small class="text-muted">{{ order.timestamp }}</small>
+                            </h5>
+                            <span class="badge bg-primary rounded-pill">
+                                ${{ "%.2f"|format(order.order_total) }}
+                            </span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Price</th>
+                                        <th>Qty</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in order.order_items %}
+                                    <tr>
+                                        <td>{{ item.name }}</td>
+                                        <td>${{ "%.2f"|format(item.price) }}</td>
+                                        <td>1</td>
+                                        <td>${{ "%.2f"|format(item.price) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
