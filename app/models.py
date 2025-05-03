@@ -3,7 +3,7 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
-TABLES_NU = 20
+TABLES_NU = 50
 
 class Table(db.Model):
     id = db.Column(db.Integer, primary_key=True)

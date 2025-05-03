@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Daily Statistics</h2>
+    
+    <form method="POST" class="mb-4">
+        <div class="form-group">
+            <label for="date">Select Date:</label>
+            <input type="date" name="date" id="date" value="{{ selected_date }}" class="form-control" style="width: 200px;">
+            <button type="submit" class="btn btn-primary mt-2">Load Data</button>
+        </div>
+    </form>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Total Sales: ${{ "%.2f"|format(total_sales) }}</h4>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>Top Selling Items</h4>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Category</th>
+                                <th>Quantity</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item_name, data in item_sales %}
+                            <tr>
+                                <td>{{ item_name }}</td>
+                                <td>{{ data.category }}</td>
+                                <td>{{ data.count }}</td>
+                                <td>${{ "%.2f"|format(data.count * data.price) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Orders by Table</h4>
+                </div>
+                <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                    {% for table_id, details in table_details.items() %}
+                    <div class="mb-4">
+                        <h5>Table {{ table_id }} - Total: ${{ "%.2f"|format(details.total) }}</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in details.order_items %}  <!-- Changed from details.items to details.order_items -->
+                                <tr>
+                                    <td>{{ item.name }}</td>
+                                    <td>${{ "%.2f"|format(item.price) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

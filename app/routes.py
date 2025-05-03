@@ -303,8 +303,60 @@ def get_tables_flutter():
 
 
 
+#########STATISTICS#################3
 
-
+@main.route('/statistics', methods=['GET', 'POST'])
+@login_required
+def statistics():
+    selected_date = request.form.get('date') or datetime.now().strftime('%Y-%m-%d')
+    
+    # Get all orders for the selected date
+    orders = Order.query.filter(
+        db.func.date(Order.timestamp) == selected_date,
+        Order.status == 'closed'
+    ).all()
+    
+    # Calculate item sales
+    item_sales = {}
+    table_details = {}
+    
+    for order in orders:
+        # Table details - use order_items as the key instead of items
+        if order.table_id not in table_details:
+            table_details[order.table_id] = {
+                'total': 0,
+                'order_items': []  # Changed from items to order_items
+            }
+        
+        # Order items
+        for item in order.items:
+            if item.menu_item:
+                # Item sales count
+                if item.menu_item.name not in item_sales:
+                    item_sales[item.menu_item.name] = {
+                        'count': 0,
+                        'price': item.menu_item.price,
+                        'category': item.menu_item.category
+                    }
+                item_sales[item.menu_item.name]['count'] += 1
+                
+                # Table details
+                table_details[order.table_id]['order_items'].append({  # Changed to order_items
+                    'name': item.menu_item.name,
+                    'price': item.menu_item.price
+                })
+                table_details[order.table_id]['total'] += item.menu_item.price
+    
+    # Sort items by sales count (descending)
+    sorted_items = sorted(item_sales.items(), key=lambda x: x[1]['count'], reverse=True)
+    
+    return render_template(
+        'statistics.html',
+        selected_date=selected_date,
+        item_sales=sorted_items,
+        table_details=table_details,
+        total_sales=sum(details['total'] for details in table_details.values())
+    )
 
 
 ##### BILL RECEIPTS ##########
