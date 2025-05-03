@@ -384,33 +384,36 @@ hr {
                     Refresh Tables
                 </button>
                 
-                <div id="order-section" class="initially-hidden">
-                    <h4>Table <span id="selected-table-number" class="badge badge-secondary"></span></h4>
-                    <button id="order-button" class="btn btn-kds-primary mb-3" onclick="initiateOrder()">
-                        Start Order
-                    </button>
+<div id="order-section" class="initially-hidden">
+    <h4>Table <span id="selected-table-number" class="badge badge-secondary"></span></h4>
+    <button id="order-button" class="btn btn-kds-primary mb-3" onclick="initiateOrder()">
+        Start Order
+    </button>
 
+    <div id="modify-controls" class="initially-hidden mt-3">
+        <button class="btn btn-warning" onclick="showModifyOptions()">Modify Order</button>
+        <button class="btn btn-danger" onclick="cancelCurrentOrder()">Cancel Order</button>
+    </div>
+    
+    <!-- Selected Items Container MOVED HERE -->
+    <div class="selected-items-container">
+        <h5>Selected Items</h5>
+        <div id="selected-items-list"></div>
+        <div class="d-flex justify-content-between mt-3">
+            <button class="btn btn-kds-danger" onclick="removeSelectedItems()">Remove Selected</button>
+            <button class="btn btn-kds-primary" onclick="confirmOrder()">Confirm Order</button>
+        </div>
+    </div>
 
-		    <div id="modify-controls" class="initially-hidden mt-3">
-    <button class="btn btn-warning" onclick="showModifyOptions()">Modify Order</button>
-    <button class="btn btn-danger" onclick="cancelCurrentOrder()">Cancel Order</button>
+    <!-- Menu Section -->
+    <div id="menu-section" class="initially-hidden">
+        <div id="categories-container"></div>
+        <div id="menu-items-container" class="menu-items-container"></div>
+    </div>
 </div>
 
-                    
-                    <div id="menu-section" class="initially-hidden">
-                        <div id="categories-container"></div>
-                        <div id="menu-items-container" class="menu-items-container"></div>
-                        
-                        <div class="selected-items-container">
-                            <h5>Selected Items</h5>
-                            <div id="selected-items-list"></div>
-                            <div class="d-flex justify-content-between mt-3">
-                                <button class="btn btn-kds-danger" onclick="clearOrder()">Clear</button>
-                                <button class="btn btn-kds-primary" onclick="confirmOrder()">Confirm Order</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
+
                 
                 {% if current_user.is_authenticated and current_user.role == 'admin' %}
                 <div id="admin-controls" class="initially-hidden mt-3">
@@ -593,12 +596,15 @@ function selectTable(tableId, tableNumber) {
                 
                 data.orders[0].items.forEach(item => {
                     orderItems.append(`
-                        <div class="order-item" data-order-item-id="${item.order_item_id}">
-                            <span>${item.name}</span>
-                            <span>$${item.price.toFixed(2)}</span>
-                            <span class="remove-item" onclick="removeExistingItem(${item.order_item_id}, '${item.name.replace(/'/g, "\\'")}')">×</span>
-                        </div>
-                    `);
+                       <div class="order-item" data-order-item-id="${item.order_item_id}">
+				 <input type="checkbox" class="item-checkbox" data-item-id="${item.order_item_id}">
+				 <span>${item.name}</span>
+				 <span>$${item.price.toFixed(2)}</span>
+				 <span class="remove-item" onclick="removeExistingItem(${item.order_item_id}, '${item.name.replace(/'/g, "\\'")}')">×</span>
+			</div> 
+
+
+			    `);
                 });
                 
                 // Show modify controls if order exists
@@ -630,45 +636,31 @@ function selectTable(tableId, tableNumber) {
         });
 }
 
-// Show modify options
 function showModifyOptions() {
-    // Clear any existing selected items
+    // Reset selections
     selectedItems = [];
     renderSelectedItems();
-
-    // Hide the order button and show menu section
+    
+    // Show necessary sections
     $("#order-button").hide();
     $("#menu-section").show();
-
+    $(".selected-items-container").show(); // Explicitly show this
+    
     // Render categories
     const categories = Object.keys(menuData);
-    const container = $("#categories-container");
-    container.empty();
-
+    $("#categories-container").empty();
+    
     categories.forEach(category => {
-        container.append(`
+        $("#categories-container").append(`
             <div class="menu-category" onclick="showCategoryItems('${category}')">
                 ${category}
             </div>
         `);
     });
-
-    // Show first category by default
-    if (categories.length > 0) {
-        showCategoryItems(categories[0]);
-    }
-
-    // Clear any existing "Cancel Selected Items" button before adding a new one
-    $("#selected-items-list").prev(".d-flex").remove();
-
-    // Add a single "Cancel Entire Order" button (only once)
-    $("#selected-items-list").before(`
-        <div class="d-flex justify-content-between mb-3">
-            <button class="btn btn-kds-danger" onclick="cancelCurrentOrder()">Cancel Entire Order</button>
-        </div>
-    `);
+    
+    // Show first category
+    if (categories.length > 0) showCategoryItems(categories[0]);
 }
-
 
 // Remove existing item from order
 function removeExistingItem(itemId, itemName) {
@@ -956,7 +948,45 @@ function confirmOrder() {
         .catch(() => alert("Failed to load receipt"));
 }
 
+// Clear selected items (batch removal)
+function removeSelectedItems() {
+    const itemsToRemove = [];
+    
+    // Collect IDs of checked items
+    $(".item-checkbox:checked").each(function() {
+        itemsToRemove.push($(this).data("item-id"));
+    });
 
+    if (itemsToRemove.length === 0) {
+        alert("Please select at least one item to remove.");
+        return;
+    }
+
+    if (confirm(`Remove ${itemsToRemove.length} selected items?`)) {
+        modifyOrder([], itemsToRemove)  // Pass to modifyOrder()
+            .then(() => {
+                // Remove items from UI on success
+                $(".item-checkbox:checked").closest(".order-item").remove();
+                
+                // Hide order display if no items left
+                if ($("#current-order-items").children().length === 0) {
+                    $("#order-display").hide();
+                }
+            })
+            .catch(error => {
+                console.error("Failed to remove items:", error);
+                alert("Failed to remove items. Please try again.");
+            });
+    }
+}
+
+// Helper: Update the UI after batch removal
+function updateUIAfterBatchRemoval() {
+    $(".item-checkbox:checked").closest(".order-item").remove();
+    if ($("#current-order-items").children().length === 0) {
+        $("#current-order-items").html('<div class="text-muted">No active orders for this table</div>');
+    }
+}
 
         // Refresh tables
         function refreshTables() {
