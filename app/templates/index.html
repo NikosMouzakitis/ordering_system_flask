@@ -445,7 +445,7 @@
                     <div class="order-controls-grid">
                         <!-- Left Column - Selected Items -->
                         <div class="order-items-column">
-                            <div class="selected-items-container">
+                            <div class="selected-items-container initially-hidden">
                                 <h5>Selected Items</h5>
                                 <div id="selected-items-list"></div>
                                 <div class="d-flex justify-content-between mt-3">
@@ -690,33 +690,36 @@
                 });
         }
 
-        function showModifyOptions() {
-            // Clear previous content
-            $("#selected-items-list").empty();
-            selectedItems = [];  // Reset the array
 
-            // Hide the order button and show menu section
-            $("#order-button").hide();
-            $("#menu-section").show();
+function showModifyOptions() {
+    // Clear previous content
+    $("#selected-items-list").empty();
+    selectedItems = [];  // Reset the array
 
-            // Render categories
-            const categories = Object.keys(menuData);
-            const container = $("#categories-container");
-            container.empty();
+    // Hide the order button and show menu section
+    $("#order-button").hide();
+    $("#menu-section").show();
+    $(".selected-items-container").show(); // Add this line
 
-            categories.forEach(category => {
-                container.append(`
-                    <div class="menu-category" onclick="showCategoryItems('${category}')">
-                        ${category}
-                    </div>
-                `);
-            });
+    // Rest of the function remains the same
+    const categories = Object.keys(menuData);
+    const container = $("#categories-container");
+    container.empty();
 
-            // Show first category by default
-            if (categories.length > 0) {
-                showCategoryItems(categories[0]);
-            }
-        }
+    categories.forEach(category => {
+        container.append(`
+            <div class="menu-category" onclick="showCategoryItems('${category}')">
+                ${category}
+            </div>
+        `);
+    });
+
+    if (categories.length > 0) {
+        showCategoryItems(categories[0]);
+    }
+}
+
+
 
         // Remove existing item from order
         function removeExistingItem(itemId, itemName) {
@@ -763,55 +766,56 @@
         }
 
         // Cancel entire order
-        function cancelCurrentOrder() {
-            if (!currentOrderId || !confirm("Cancel this entire order?")) {
-                return;
-            }
-            
-            fetch(`/cancel_order/${currentOrderId}`, {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    alert("Order cancelled successfully!");
-                    currentOrderId = null;
-                    $("#menu-section").hide();
-                    $("#order-button").text("Start Order").off('click').on('click', initiateOrder);
-                    fetchTables();
-                } else {
-                    alert("Failed to cancel order: " + (data.message || "Unknown error"));
-                }
-            })
-            .catch(error => {
-                console.error("Error:", error);
-                alert("Failed to cancel order");
-            });
+       function cancelCurrentOrder() {
+    if (!currentOrderId || !confirm("Cancel this entire order?")) {
+        return;
+    }
+    
+    fetch(`/cancel_order/${currentOrderId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            alert("Order cancelled successfully!");
+            currentOrderId = null;
+            $("#menu-section").hide();
+            $(".selected-items-container").hide(); // Add this line
+            $("#order-button").text("Start Order").off('click').on('click', initiateOrder);
+            fetchTables();
+        } else {
+            alert("Failed to cancel order: " + (data.message || "Unknown error"));
         }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("Failed to cancel order");
+    });
+} 
 
         // Start order process
-        function initiateOrder() {
-            $("#order-button").hide();
-            $("#menu-section").show();
-            
-            // Render categories
-            const categories = Object.keys(menuData);
-            const container = $("#categories-container");
-            container.empty();
-            
-            categories.forEach(category => {
-                container.append(`
-                    <div class="menu-category" onclick="showCategoryItems('${category}')">
-                        ${category}
-                    </div>
-                `);
-            });
-            
-            // Show first category by default
-            if (categories.length > 0) {
-                showCategoryItems(categories[0]);
-            }
-        }
+  function initiateOrder() {
+    $("#order-button").hide();
+    $("#menu-section").show();
+    $(".selected-items-container").show(); // Add this line
+    
+    // Rest of the function remains the same
+    const categories = Object.keys(menuData);
+    const container = $("#categories-container");
+    container.empty();
+    
+    categories.forEach(category => {
+        container.append(`
+            <div class="menu-category" onclick="showCategoryItems('${category}')">
+                ${category}
+            </div>
+        `);
+    });
+    
+    if (categories.length > 0) {
+        showCategoryItems(categories[0]);
+    }
+} 
 
         // Show items for a specific category
         function showCategoryItems(category) {
@@ -872,38 +876,40 @@
         }
 
         // Confirm order
-        function confirmOrder() {
-            if (!selectedTable) {
-                alert("Please select a table first");
-                return;
-            }
-            
-            if (selectedItems.length === 0) {
-                alert("Please add at least one item to the order");
-                return;
-            }
-            
-            const itemIds = selectedItems.map(item => item.id);
-            
-            if (currentOrderId) {
-                // Modify existing order
-                modifyOrder(itemIds, []);
-            } else {
-                // Create new order (existing code)
-                $.post("/order", {
-                    table_id: selectedTable,
-                    items: itemIds
-                })
-                .then(response => {
-                    alert(`Order placed for Table ${selectedTableNumber}!`);
-                    selectedItems = [];
-                    $("#menu-section").hide();
-                    $("#order-button").show();
-                    fetchTables();
-                })
-                .catch(() => alert("Failed to place order"));
-            }
-        }
+       // Also add this to hide the container when confirming or canceling orders
+function confirmOrder() {
+    if (!selectedTable) {
+        alert("Please select a table first");
+        return;
+    }
+    
+    if (selectedItems.length === 0) {
+        alert("Please add at least one item to the order");
+        return;
+    }
+    
+    const itemIds = selectedItems.map(item => item.id);
+    
+    if (currentOrderId) {
+        // Modify existing order
+        modifyOrder(itemIds, []);
+    } else {
+        // Create new order
+        $.post("/order", {
+            table_id: selectedTable,
+            items: itemIds
+        })
+        .then(response => {
+            alert(`Order placed for Table ${selectedTableNumber}!`);
+            selectedItems = [];
+            $("#menu-section").hide();
+            $(".selected-items-container").hide(); // Add this line
+            $("#order-button").show();
+            fetchTables();
+        })
+        .catch(() => alert("Failed to place order"));
+    }
+} 
 
         // Clear selected items (batch removal)
         function removeSelectedItems() {
