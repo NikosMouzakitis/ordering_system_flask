@@ -305,6 +305,7 @@ def get_tables_flutter():
 
 #########STATISTICS#################3
 
+
 @main.route('/statistics', methods=['GET', 'POST'])
 @login_required
 def statistics():
@@ -314,38 +315,58 @@ def statistics():
     orders = Order.query.filter(
         db.func.date(Order.timestamp) == selected_date,
         Order.status == 'closed'
-    ).all()
+    ).order_by(Order.timestamp).all()
     
     # Calculate item sales
     item_sales = {}
-    table_details = {}
+    table_summary = {}  # Changed from table_details to table_summary
+    order_breakdown = []  # Changed from order_details to order_breakdown
     
     for order in orders:
-        # Table details - use order_items as the key instead of items
-        if order.table_id not in table_details:
-            table_details[order.table_id] = {
+        # Table summary details
+        if order.table_id not in table_summary:
+            table_summary[order.table_id] = {
                 'total': 0,
-                'order_items': []  # Changed from items to order_items
+                'items_summary': []  # Changed from order_items to items_summary
             }
         
-        # Order items
-        for item in order.items:
-            if item.menu_item:
-                # Item sales count
-                if item.menu_item.name not in item_sales:
-                    item_sales[item.menu_item.name] = {
-                        'count': 0,
-                        'price': item.menu_item.price,
-                        'category': item.menu_item.category
-                    }
-                item_sales[item.menu_item.name]['count'] += 1
+        # Detailed order information
+        order_data = {
+            'table_id': order.table_id,
+            'timestamp': order.timestamp.strftime('%H:%M:%S'),
+            'order_items': [],  # Changed from items to order_items
+            'order_total': 0
+        }
+        
+        # Process items
+        for order_item in order.items:  # Changed variable name from item to order_item
+            if order_item.menu_item:
+                menu_item = order_item.menu_item
                 
-                # Table details
-                table_details[order.table_id]['order_items'].append({  # Changed to order_items
-                    'name': item.menu_item.name,
-                    'price': item.menu_item.price
+                # Item sales count
+                if menu_item.name not in item_sales:
+                    item_sales[menu_item.name] = {
+                        'count': 0,
+                        'price': menu_item.price,
+                        'category': menu_item.category
+                    }
+                item_sales[menu_item.name]['count'] += 1
+                
+                # Table summary
+                table_summary[order.table_id]['items_summary'].append({
+                    'name': menu_item.name,
+                    'price': menu_item.price
                 })
-                table_details[order.table_id]['total'] += item.menu_item.price
+                table_summary[order.table_id]['total'] += menu_item.price
+                
+                # Order breakdown
+                order_data['order_items'].append({
+                    'name': menu_item.name,
+                    'price': menu_item.price
+                })
+                order_data['order_total'] += menu_item.price
+        
+        order_breakdown.append(order_data)
     
     # Sort items by sales count (descending)
     sorted_items = sorted(item_sales.items(), key=lambda x: x[1]['count'], reverse=True)
@@ -354,8 +375,9 @@ def statistics():
         'statistics.html',
         selected_date=selected_date,
         item_sales=sorted_items,
-        table_details=table_details,
-        total_sales=sum(details['total'] for details in table_details.values())
+        table_summary=table_summary,  # Changed from table_details
+        order_breakdown=order_breakdown,  # Changed from order_details
+        total_sales=sum(details['total'] for details in table_summary.values())
     )
 
 

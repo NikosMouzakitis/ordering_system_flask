@@ -15,6 +15,7 @@
     </form>
     
     <div class="row">
+        <!-- Left Column (Summary) -->
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
@@ -49,17 +50,42 @@
                     </table>
                 </div>
             </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>Summary by Table</h4>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Table</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for table_id, details in table_summary.items() %}
+                            <tr>
+                                <td>Table {{ table_id }}</td>
+                                <td>${{ "%.2f"|format(details.total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
         
+        <!-- Right Column (Detailed Orders) -->
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h4>Orders by Table</h4>
+                    <h4>Detailed Orders</h4>
                 </div>
                 <div class="card-body" style="max-height: 600px; overflow-y: auto;">
-                    {% for table_id, details in table_details.items() %}
-                    <div class="mb-4">
-                        <h5>Table {{ table_id }} - Total: ${{ "%.2f"|format(details.total) }}</h5>
+                    {% for order in order_breakdown %}
+                    <div class="mb-4 border-bottom pb-3">
+                        <h5>Table {{ order.table_id }} - {{ order.timestamp }} - Total: ${{ "%.2f"|format(order.order_total) }}</h5>
                         <table class="table table-sm">
                             <thead>
                                 <tr>
@@ -68,7 +94,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in details.order_items %}  <!-- Changed from details.items to details.order_items -->
+                                {% for item in order.order_items %}
                                 <tr>
                                     <td>{{ item.name }}</td>
                                     <td>${{ "%.2f"|format(item.price) }}</td>

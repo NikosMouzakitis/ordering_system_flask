@@ -26,6 +26,7 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            margin: 0;
         }
         
         .navbar {
@@ -39,25 +40,51 @@
             overflow: hidden;
         }
         
-        /* Tables grid area - KDS style */
+        /* Left side container */
+        .left-container {
+            width: 45%;
+            display: flex;
+            flex-direction: column;
+            margin: 10px;
+        }
+        
+        /* Tables grid area */
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             gap: 15px;
-            margin: 20px;
-            width: 70%;
-            overflow-y: auto;
             padding: 15px;
             background-color: #ffffff;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: 50%;
+            overflow-y: auto;
         }
 
-        /* Controls area - KDS style */
+        /* Order display area */
+        .order-display {
+            margin-top: 10px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: 50%;
+            overflow-y: auto;
+            display: none; /* Initially hidden */
+        }
+        
+        .order-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        /* Controls area */
         .controls {
-            margin: 20px;
+            margin: 10px;
             padding: 20px;
-            width: 30%;
+            width: 55%;
             background-color: #ffffff;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -66,7 +93,7 @@
             overflow-y: auto;
         }
         
-        /* Table boxes - KDS color scheme */
+        /* Table boxes */
         .table-box {
             padding: 0;
             border-radius: 8px;
@@ -92,7 +119,7 @@
         .occupied { background-color: var(--kds-danger); }
         .reserved { background-color: var(--kds-info); }
         
-        /* Order menu - KDS style */
+        /* Order menu */
         #categories-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -165,7 +192,7 @@
             font-weight: bold;
         }
         
-        /* Buttons - KDS style */
+        /* Buttons */
         .btn-kds-primary {
             background-color: var(--kds-primary);
             border-color: var(--kds-primary-dark);
@@ -184,7 +211,7 @@
             color: white;
         }
         
-        /* Tooltip styles - Fixed positioning */
+        /* Tooltip styles */
         .table-tooltip {
             position: absolute;
             left: 50%;
@@ -202,42 +229,6 @@
             z-index: 100;
         }
         
-        /* Position tooltips at bottom for first row */
-        .grid-container > .table-box:nth-child(-n+4) .table-tooltip {
-            top: 100%;
-            bottom: auto;
-            margin-top: 10px;
-        }
-        
-        /* Position tooltips at top for other rows */
-        .grid-container > .table-box:not(:nth-child(-n+4)) .table-tooltip {
-            bottom: 100%;
-            top: auto;
-            margin-bottom: 10px;
-        }
-        
-        /* Tooltip arrows */
-        .table-tooltip:after {
-            content: "";
-            position: absolute;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-        }
-        
-        /* Arrow direction for first row */
-        .grid-container > .table-box:nth-child(-n+4) .table-tooltip:after {
-            top: -10px;
-            border-color: transparent transparent var(--kds-dark) transparent;
-        }
-        
-        /* Arrow direction for other rows */
-        .grid-container > .table-box:not(:nth-child(-n+4)) .table-tooltip:after {
-            bottom: -10px;
-            border-color: var(--kds-dark) transparent transparent transparent;
-        }
-        
         .table-box:hover .table-tooltip {
             visibility: visible;
             opacity: 1;
@@ -248,44 +239,98 @@
             .main-container {
                 flex-direction: column;
             }
-            .grid-container, .controls {
+            
+            .left-container, .controls {
                 width: auto;
-                margin: 10px;
+                height: auto;
             }
             
-            /* Adjust tooltip positions for mobile */
-            .grid-container > .table-box .table-tooltip {
-                top: 100%;
-                bottom: auto;
-                margin-top: 10px;
+            .grid-container {
+                height: 300px;
             }
             
-            .grid-container > .table-box .table-tooltip:after {
-                top: -10px;
-                bottom: auto;
-                border-color: transparent transparent var(--kds-dark) transparent;
+            .order-display {
+                height: 200px;
             }
             
-            /* Switch to 2 columns for categories on mobile */
             #categories-container {
                 grid-template-columns: repeat(2, 1fr);
             }
-        }
-        
-        /* Receipt modal */
-        .receipt-preview {
-            font-family: 'Courier New', monospace;
-            white-space: pre;
-            line-height: 1.4;
-            background-color: white;
-            padding: 15px;
-            border-radius: 4px;
         }
         
         /* Initially hidden sections */
         .initially-hidden {
             display: none;
         }
+
+
+	.receipt-container {
+    font-family: 'Courier New', monospace;
+    max-width: 300px;
+    margin: 0 auto;
+    padding: 15px;
+    background: white;
+    border: 1px dashed #ccc;
+}
+
+.receipt-header {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.receipt-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+}
+
+.receipt-table th {
+    border-bottom: 1px dashed #333;
+    padding: 5px 0;
+    text-align: left;
+}
+
+.receipt-table td {
+    padding: 3px 0;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.receipt-total {
+    margin-top: 10px;
+}
+
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.total-amount {
+    font-weight: bold;
+}
+
+.receipt-footer {
+    text-align: center;
+    margin-top: 15px;
+    font-style: italic;
+}
+
+hr {
+    border: 0;
+    border-top: 1px dashed #ccc;
+    margin: 10px 0;
+}
+
     </style>
 </head>
 <body>
@@ -296,6 +341,8 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ml-auto">
+
+
                 {% if current_user.is_authenticated %}
                 <li class="nav-item">
                     <span class="nav-link">Logged in as {{ current_user.username }}</span>
@@ -308,15 +355,28 @@
                     <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
                 </li>
                 {% endif %}
+
+
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('main.current_orders') }}">Current Orders</a>
                 </li>
+
+		<li class="nav-item">
+			<a class="nav-link" href="{{ url_for('main.statistics') }}">Statistics</a>
+		</li>
             </ul>
         </div>
     </nav>
 
     <div class="main-container">
-        <div class="grid-container" id="tables-container"></div>
+        <div class="left-container">
+            <div class="grid-container" id="tables-container"></div>
+            <div class="order-display" id="order-display">
+                <h5>Current Order for Table <span id="order-table-number"></span></h5>
+                <div id="current-order-items"></div>
+            </div>
+        </div>
+        
         <div class="controls">
             <div class="controls-content">
                 <h3>Order Controls</h3>
@@ -459,7 +519,35 @@
                     $(`.table-box[data-table-id="${tableId}"] .table-tooltip`)
                         .html(data.orders.length > 0 ? 
                              data.orders.join("<br>") : "No orders");
+                    
+                    // Update order display if this is the selected table
+                    if (selectedTable === tableId) {
+                        updateOrderDisplay(data.orders);
+                    }
                 });
+        }
+
+        // Update the order display area
+        function updateOrderDisplay(orders) {
+            const orderDisplay = $("#order-display");
+            const orderItems = $("#current-order-items");
+            
+            if (orders && orders.length > 0) {
+                orderDisplay.show();
+                $("#order-table-number").text(selectedTableNumber);
+                orderItems.empty();
+                
+                orders.forEach(item => {
+                    orderItems.append(`
+                        <div class="order-item">
+                            <span>${item.name}</span>
+                            <span>$${item.price.toFixed(2)}</span>
+                        </div>
+                    `);
+                });
+            } else {
+                orderDisplay.hide();
+            }
         }
 
         // Fetch menu data
@@ -470,34 +558,73 @@
                 });
         }
 
-        // Select a table
-        function selectTable(tableId, tableNumber) {
-            selectedTable = tableId;
-            selectedTableNumber = tableNumber;
+// Select a table
+function selectTable(tableId, tableNumber) {
+    selectedTable = tableId;
+    selectedTableNumber = tableNumber;
+    
+    // Update UI
+    $("#selected-table-number").text(tableNumber);
+    $("#order-section").show();
+    $("#menu-section").hide();
+    $("#order-button").show();
+    
+    // Show order display area
+    $("#order-display").show();
+    $("#order-table-number").text(tableNumber);
+    
+    // Load and display orders for this table
+    fetch(`/get_orders/${tableId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            const orderItems = $("#current-order-items");
+            orderItems.empty();
             
-            // Update UI
-            $("#selected-table-number").text(tableNumber);
-            $("#order-section").show();
-            $("#menu-section").hide();
-            $("#order-button").show();
+            console.log("API Response:", data); // Debug log
             
-            // Check if table has orders (for admin controls)
-            fetch(`/get_orders/${tableId}`)
-                .then(response => response.json())
-                .then(data => {
-                    const hasOrders = data.orders && data.orders.length > 0;
-                    $("#free-table-button").toggle(hasOrders);
-                    $("#print-receipt-button").toggle(hasOrders);
-                    $("#preview-receipt-button").toggle(hasOrders);
-                    
-                    // Show admin controls if user is admin
-                    if ({{ 'true' if current_user.is_authenticated and current_user.role == 'admin' else 'false' }}) {
-                        $("#admin-controls").toggle(hasOrders);
-                    }
-                });
-        }
+            // Check if we got valid orders data
+            if (data.orders && Array.isArray(data.orders)) {
+                if (data.orders.length > 0) {
+                    // Since your API returns just names, we'll display them
+                    data.orders.forEach(itemName => {
+                        orderItems.append(`
+                            <div class="order-item">
+                                <span>${itemName}</span>
+                            </div>
+                        `);
+                    });
+                } else {
+                    orderItems.html('<div class="text-muted">No active orders for this table</div>');
+                }
+            } else {
+                console.error('Unexpected API response format:', data);
+                orderItems.html('<div class="text-danger">Unexpected data format</div>');
+            }
 
-        // Start order process
+            // Show/hide admin controls
+            const hasOrders = data.orders && data.orders.length > 0;
+            $("#free-table-button").toggle(hasOrders);
+            $("#print-receipt-button").toggle(hasOrders);
+            $("#preview-receipt-button").toggle(hasOrders);
+            
+            if ({{ 'true' if current_user.is_authenticated and current_user.role == 'admin' else 'false' }}) {
+                $("#admin-controls").toggle(hasOrders);
+            }
+        })
+        .catch(error => {
+            console.error("Error loading orders:", error);
+            $("#current-order-items").html('<div class="text-danger">Error loading orders. Please try again.</div>');
+        });
+}
+
+
+
+	// Start order process
         function initiateOrder() {
             $("#order-button").hide();
             $("#menu-section").show();
@@ -642,34 +769,66 @@
             window.open(`/receipt/${selectedTable}`, '_blank');
         }
 
-        function previewReceipt() {
-            if (!selectedTable) {
-                alert("No table selected");
-                return;
-            }
+	function previewReceipt() {
+    if (!selectedTable) {
+        alert("No table selected");
+        return;
+    }
+    
+    fetch(`/receipt_preview/${selectedTable}`)
+        .then(response => response.json())
+        .then(data => {
+            // Create a nicely formatted HTML receipt
+            let receiptHTML = `
+                <div class="receipt-container">
+                    <div class="receipt-header">
+                        <h3>RESTAURANT RECEIPT</h3>
+                        <p>Table: ${data.table_number}</p>
+                        <p>Date: ${new Date().toLocaleString()}</p>
+                        <hr>
+                    </div>
+                    <div class="receipt-items">
+                        <table class="receipt-table">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th class="text-right">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
             
-            fetch(`/receipt_preview/${selectedTable}`)
-                .then(response => response.json())
-                .then(data => {
-                    let receiptText = "========================\n";
-                    receiptText += `     RESTAURANT RECEIPT   \n`;
-                    receiptText += `     Table ${data.table_number}\n`;
-                    receiptText += "========================\n\n";
-                    
-                    data.items.forEach(item => {
-                        receiptText += `${item.name.padEnd(20)} $${item.price.toFixed(2)}\n`;
-                    });
-                    
-                    receiptText += "\n------------------------\n";
-                    receiptText += `TOTAL${''.padEnd(15)} $${data.total.toFixed(2)}\n`;
-                    receiptText += "========================\n";
-                    receiptText += "Thank you for dining with us!\n";
-                    
-                    $("#receipt-preview-content").text(receiptText);
-                    $("#receipt-preview-modal").modal("show");
-                })
-                .catch(() => alert("Failed to load receipt"));
-        }
+            data.items.forEach(item => {
+                receiptHTML += `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td class="text-right">$${item.price.toFixed(2)}</td>
+                    </tr>`;
+            });
+            
+            receiptHTML += `
+                            </tbody>
+                        </table>
+                        <hr>
+                        <div class="receipt-total">
+                            <div class="total-row">
+                                <span>TOTAL:</span>
+                                <span class="total-amount">$${data.total.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="receipt-footer">
+                        <p>Thank you for dining with us!</p>
+                    </div>
+                </div>
+            `;
+            
+            $("#receipt-preview-content").html(receiptHTML);
+            $("#receipt-preview-modal").modal("show");
+        })
+        .catch(() => alert("Failed to load receipt"));
+}
+
+
 
         // Refresh tables
         function refreshTables() {
