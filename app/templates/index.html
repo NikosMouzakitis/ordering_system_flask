@@ -172,6 +172,9 @@
             padding: 15px;
             margin-top: 20px;
             background-color: white;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
         
         .selected-item {
@@ -233,6 +236,47 @@
             visibility: visible;
             opacity: 1;
         }
+
+        /* Two-column layout for order controls */
+        .order-controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            height: calc(100% - 60px);
+        }
+
+        .order-items-column {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-height: 65vh;
+        }
+
+        .menu-column {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            max-height: 65vh;
+        }
+
+        #selected-items-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+
+        #menu-items-container {
+            flex: 1;
+            overflow-y: auto;
+        }
         
         /* Responsive adjustments */
         @media (max-width: 992px) {
@@ -256,6 +300,15 @@
             #categories-container {
                 grid-template-columns: repeat(2, 1fr);
             }
+
+            .order-controls-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .order-items-column,
+            .menu-column {
+                max-height: none;
+            }
         }
         
         /* Initially hidden sections */
@@ -263,74 +316,72 @@
             display: none;
         }
 
+        .receipt-container {
+            font-family: 'Courier New', monospace;
+            max-width: 300px;
+            margin: 0 auto;
+            padding: 15px;
+            background: white;
+            border: 1px dashed #ccc;
+        }
 
-	.receipt-container {
-    font-family: 'Courier New', monospace;
-    max-width: 300px;
-    margin: 0 auto;
-    padding: 15px;
-    background: white;
-    border: 1px dashed #ccc;
-}
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
 
-.receipt-header {
-    text-align: center;
-    margin-bottom: 15px;
-}
+        .receipt-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
 
-.receipt-header h3 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: bold;
-}
+        .receipt-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
 
-.receipt-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 10px 0;
-}
+        .receipt-table th {
+            border-bottom: 1px dashed #333;
+            padding: 5px 0;
+            text-align: left;
+        }
 
-.receipt-table th {
-    border-bottom: 1px dashed #333;
-    padding: 5px 0;
-    text-align: left;
-}
+        .receipt-table td {
+            padding: 3px 0;
+        }
 
-.receipt-table td {
-    padding: 3px 0;
-}
+        .text-right {
+            text-align: right;
+        }
 
-.text-right {
-    text-align: right;
-}
+        .receipt-total {
+            margin-top: 10px;
+        }
 
-.receipt-total {
-    margin-top: 10px;
-}
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
 
-.total-row {
-    display: flex;
-    justify-content: space-between;
-    font-weight: bold;
-    font-size: 1.1em;
-}
+        .total-amount {
+            font-weight: bold;
+        }
 
-.total-amount {
-    font-weight: bold;
-}
+        .receipt-footer {
+            text-align: center;
+            margin-top: 15px;
+            font-style: italic;
+        }
 
-.receipt-footer {
-    text-align: center;
-    margin-top: 15px;
-    font-style: italic;
-}
-
-hr {
-    border: 0;
-    border-top: 1px dashed #ccc;
-    margin: 10px 0;
-}
-
+        hr {
+            border: 0;
+            border-top: 1px dashed #ccc;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -361,9 +412,9 @@ hr {
                     <a class="nav-link" href="{{ url_for('main.current_orders') }}">Current Orders</a>
                 </li>
 
-		<li class="nav-item">
-			<a class="nav-link" href="{{ url_for('main.statistics') }}">Statistics</a>
-		</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('main.statistics') }}">Statistics</a>
+                </li>
             </ul>
         </div>
     </nav>
@@ -384,36 +435,41 @@ hr {
                     Refresh Tables
                 </button>
                 
-<div id="order-section" class="initially-hidden">
-    <h4>Table <span id="selected-table-number" class="badge badge-secondary"></span></h4>
-    <button id="order-button" class="btn btn-kds-primary mb-3" onclick="initiateOrder()">
-        Start Order
-    </button>
+                <div id="order-section" class="initially-hidden">
+                    <h4>Table <span id="selected-table-number" class="badge badge-secondary"></span></h4>
+                    <button id="order-button" class="btn btn-kds-primary mb-3" onclick="initiateOrder()">
+                        Start Order
+                    </button>
 
-    <div id="modify-controls" class="initially-hidden mt-3">
-        <button class="btn btn-warning" onclick="showModifyOptions()">Modify Order</button>
-        <button class="btn btn-danger" onclick="cancelCurrentOrder()">Cancel Order</button>
-    </div>
-    
-    <!-- Selected Items Container MOVED HERE -->
-    <div class="selected-items-container">
-        <h5>Selected Items</h5>
-        <div id="selected-items-list"></div>
-        <div class="d-flex justify-content-between mt-3">
-            <button class="btn btn-kds-danger" onclick="removeSelectedItems()">Remove Selected</button>
-            <button class="btn btn-kds-primary" onclick="confirmOrder()">Confirm Order</button>
-        </div>
-    </div>
-
-    <!-- Menu Section -->
-    <div id="menu-section" class="initially-hidden">
-        <div id="categories-container"></div>
-        <div id="menu-items-container" class="menu-items-container"></div>
-    </div>
-</div>
-
-
-
+                    <!-- Two Column Container -->
+                    <div class="order-controls-grid">
+                        <!-- Left Column - Selected Items -->
+                        <div class="order-items-column">
+                            <div class="selected-items-container">
+                                <h5>Selected Items</h5>
+                                <div id="selected-items-list"></div>
+                                <div class="d-flex justify-content-between mt-3">
+                                    <button class="btn btn-kds-danger" onclick="removeSelectedItems()">Remove Selected</button>
+                                    <button class="btn btn-kds-primary" onclick="confirmOrder()">Confirm Order</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column - Menu -->
+                        <div class="menu-column">
+                            <div id="menu-section" class="initially-hidden">
+                                <div id="categories-container"></div>
+                                <div id="menu-items-container" class="menu-items-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Modify/Cancel Buttons (now at bottom) -->
+                    <div id="modify-controls" class="initially-hidden mt-3">
+                        <button class="btn btn-warning" onclick="showModifyOptions()">Modify Order</button>
+                        <button class="btn btn-danger" onclick="cancelCurrentOrder()">Cancel Order</button>
+                    </div>
+                </div>
                 
                 {% if current_user.is_authenticated and current_user.role == 'admin' %}
                 <div id="admin-controls" class="initially-hidden mt-3">
@@ -462,6 +518,7 @@ hr {
         let selectedTableNumber = null;
         let selectedItems = [];
         let menuData = {};
+        let currentOrderId = null;
 
         // Initialize the page
         $(document).ready(function() {
@@ -549,9 +606,11 @@ hr {
                 
                 orders.forEach(item => {
                     orderItems.append(`
-                        <div class="order-item">
+                        <div class="order-item" data-order-item-id="${item.order_item_id}">
+                            <input type="checkbox" class="item-checkbox" data-item-id="${item.order_item_id}">
                             <span>${item.name}</span>
                             <span>$${item.price.toFixed(2)}</span>
+                            <span class="remove-item" onclick="removeExistingItem(${item.order_item_id}, '${item.name.replace(/'/g, "\\'")}')">×</span>
                         </div>
                     `);
                 });
@@ -568,174 +627,169 @@ hr {
                 });
         }
 
-// Add to existing script section
-let currentOrderId = null;
-
-// Modified selectTable function to load order details
-function selectTable(tableId, tableNumber) {
-    selectedTable = tableId;
-    selectedTableNumber = tableNumber;
-    
-    $("#selected-table-number").text(tableNumber);
-    $("#order-section").show();
-    $("#menu-section").hide();
-    $("#order-button").show();
-    $("#order-display").show();
-    $("#order-table-number").text(tableNumber);
-    
-    // Load order details including order ID
-    fetch(`/get_order_details/${tableId}`)
-        .then(response => response.json())
-        .then(data => {
-            const orderItems = $("#current-order-items");
-            orderItems.empty();
+        // Modified selectTable function to load order details
+        function selectTable(tableId, tableNumber) {
+            selectedTable = tableId;
+            selectedTableNumber = tableNumber;
             
-            if (data.orders && data.orders.length > 0) {
-                // For simplicity, we'll use the first order if multiple exist
-                currentOrderId = data.orders[0].order_id;
-                
-                data.orders[0].items.forEach(item => {
-                    orderItems.append(`
-                       <div class="order-item" data-order-item-id="${item.order_item_id}">
-				 <input type="checkbox" class="item-checkbox" data-item-id="${item.order_item_id}">
-				 <span>${item.name}</span>
-				 <span>$${item.price.toFixed(2)}</span>
-				 <span class="remove-item" onclick="removeExistingItem(${item.order_item_id}, '${item.name.replace(/'/g, "\\'")}')">×</span>
-			</div> 
-
-
-			    `);
-                });
-                
-                // Show modify controls if order exists
-                $("#order-button").text("Modify Order").off('click').on('click', showModifyOptions);
-                $("#order-button").show();
-                
-                // Show admin controls
-                const hasOrders = data.orders[0].items.length > 0;
-                $("#free-table-button").toggle(hasOrders);
-                $("#print-receipt-button").toggle(hasOrders);
-                $("#preview-receipt-button").toggle(hasOrders);
-                
-                if ({{ 'true' if current_user.is_authenticated and current_user.role == 'admin' else 'false' }}) {
-                    $("#admin-controls").toggle(hasOrders);
-                }
-            } else {
-                // No existing order - show standard new order button
-                currentOrderId = null;
-                $("#order-button").text("Start Order").off('click').on('click', initiateOrder);
-                $("#current-order-items").html('<div class="text-muted">No active orders for this table</div>');
-                
-                // Hide admin controls
-                $("#admin-controls").hide();
-            }
-        })
-        .catch(error => {
-            console.error("Error loading orders:", error);
-            $("#current-order-items").html('<div class="text-danger">Error loading orders. Please try again.</div>');
-        });
-}
-
-function showModifyOptions() {
-    // Reset selections
-    selectedItems = [];
-    renderSelectedItems();
-    
-    // Show necessary sections
-    $("#order-button").hide();
-    $("#menu-section").show();
-    $(".selected-items-container").show(); // Explicitly show this
-    
-    // Render categories
-    const categories = Object.keys(menuData);
-    $("#categories-container").empty();
-    
-    categories.forEach(category => {
-        $("#categories-container").append(`
-            <div class="menu-category" onclick="showCategoryItems('${category}')">
-                ${category}
-            </div>
-        `);
-    });
-    
-    // Show first category
-    if (categories.length > 0) showCategoryItems(categories[0]);
-}
-
-// Remove existing item from order
-function removeExistingItem(itemId, itemName) {
-    if (confirm(`Remove ${itemName} from order?`)) {
-        modifyOrder([], [itemId]);
-    }
-}
-
-// Modify order (add/remove items)
-function modifyOrder(itemsToAdd, itemsToRemove) {
-    if (!selectedTable || !currentOrderId) {
-        alert("No table or order selected");
-        return;
-    }
-    
-    fetch('/modify_order', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            table_id: selectedTable,
-            order_id: currentOrderId,
-            add_items: itemsToAdd,
-            remove_items: itemsToRemove
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === "success") {
-            alert("Order updated successfully!");
-            selectedItems = [];
+            $("#selected-table-number").text(tableNumber);
+            $("#order-section").show();
             $("#menu-section").hide();
             $("#order-button").show();
-            fetchTables();
-        } else {
-            alert("Failed to update order: " + (data.message || "Unknown error"));
+            $("#order-display").show();
+            $("#order-table-number").text(tableNumber);
+            
+            // Load order details including order ID
+            fetch(`/get_order_details/${tableId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const orderItems = $("#current-order-items");
+                    orderItems.empty();
+                    
+                    if (data.orders && data.orders.length > 0) {
+                        // For simplicity, we'll use the first order if multiple exist
+                        currentOrderId = data.orders[0].order_id;
+                        
+                        data.orders[0].items.forEach(item => {
+                            orderItems.append(`
+                                <div class="order-item" data-order-item-id="${item.order_item_id}">
+                                    <input type="checkbox" class="item-checkbox" data-item-id="${item.order_item_id}">
+                                    <span>${item.name}</span>
+                                    <span>$${item.price.toFixed(2)}</span>
+                                    <span class="remove-item" onclick="removeExistingItem(${item.order_item_id}, '${item.name.replace(/'/g, "\\'")}')">×</span>
+                                </div>
+                            `);
+                        });
+                        
+                        // Show modify controls if order exists
+                        $("#order-button").text("Modify Order").off('click').on('click', showModifyOptions);
+                        $("#order-button").show();
+                        
+                        // Show admin controls
+                        const hasOrders = data.orders[0].items.length > 0;
+                        $("#free-table-button").toggle(hasOrders);
+                        $("#print-receipt-button").toggle(hasOrders);
+                        $("#preview-receipt-button").toggle(hasOrders);
+                        
+                        if ({{ 'true' if current_user.is_authenticated and current_user.role == 'admin' else 'false' }}) {
+                            $("#admin-controls").toggle(hasOrders);
+                        }
+                    } else {
+                        // No existing order - show standard new order button
+                        currentOrderId = null;
+                        $("#order-button").text("Start Order").off('click').on('click', initiateOrder);
+                        $("#current-order-items").html('<div class="text-muted">No active orders for this table</div>');
+                        
+                        // Hide admin controls
+                        $("#admin-controls").hide();
+                    }
+                })
+                .catch(error => {
+                    console.error("Error loading orders:", error);
+                    $("#current-order-items").html('<div class="text-danger">Error loading orders. Please try again.</div>');
+                });
         }
-    })
-    .catch(error => {
-        console.error("Error:", error);
-        alert("Failed to update order");
-    });
-}
 
-// Cancel entire order
-function cancelCurrentOrder() {
-    if (!currentOrderId || !confirm("Cancel this entire order?")) {
-        return;
-    }
-    
-    fetch(`/cancel_order/${currentOrderId}`, {
-        method: 'POST'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === "success") {
-            alert("Order cancelled successfully!");
-            currentOrderId = null;
-            $("#menu-section").hide();
-            $("#order-button").text("Start Order").off('click').on('click', initiateOrder);
-            fetchTables();
-        } else {
-            alert("Failed to cancel order: " + (data.message || "Unknown error"));
+        function showModifyOptions() {
+            // Clear previous content
+            $("#selected-items-list").empty();
+            selectedItems = [];  // Reset the array
+
+            // Hide the order button and show menu section
+            $("#order-button").hide();
+            $("#menu-section").show();
+
+            // Render categories
+            const categories = Object.keys(menuData);
+            const container = $("#categories-container");
+            container.empty();
+
+            categories.forEach(category => {
+                container.append(`
+                    <div class="menu-category" onclick="showCategoryItems('${category}')">
+                        ${category}
+                    </div>
+                `);
+            });
+
+            // Show first category by default
+            if (categories.length > 0) {
+                showCategoryItems(categories[0]);
+            }
         }
-    })
-    .catch(error => {
-        console.error("Error:", error);
-        alert("Failed to cancel order");
-    });
-}
 
+        // Remove existing item from order
+        function removeExistingItem(itemId, itemName) {
+            if (confirm(`Remove ${itemName} from order?`)) {
+                modifyOrder([], [itemId]);
+            }
+        }
 
+        // Modify order (add/remove items)
+        function modifyOrder(itemsToAdd, itemsToRemove) {
+            if (!selectedTable || !currentOrderId) {
+                alert("No table or order selected");
+                return;
+            }
+            
+            fetch('/modify_order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    table_id: selectedTable,
+                    order_id: currentOrderId,
+                    add_items: itemsToAdd,
+                    remove_items: itemsToRemove
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    alert("Order updated successfully!");
+                    selectedItems = [];
+                    $("#menu-section").hide();
+                    $("#order-button").show();
+                    fetchTables();
+                } else {
+                    alert("Failed to update order: " + (data.message || "Unknown error"));
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Failed to update order");
+            });
+        }
 
-	// Start order process
+        // Cancel entire order
+        function cancelCurrentOrder() {
+            if (!currentOrderId || !confirm("Cancel this entire order?")) {
+                return;
+            }
+            
+            fetch(`/cancel_order/${currentOrderId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    alert("Order cancelled successfully!");
+                    currentOrderId = null;
+                    $("#menu-section").hide();
+                    $("#order-button").text("Start Order").off('click').on('click', initiateOrder);
+                    fetchTables();
+                } else {
+                    alert("Failed to cancel order: " + (data.message || "Unknown error"));
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Failed to cancel order");
+            });
+        }
+
+        // Start order process
         function initiateOrder() {
             $("#order-button").hide();
             $("#menu-section").show();
@@ -818,41 +872,78 @@ function cancelCurrentOrder() {
         }
 
         // Confirm order
+        function confirmOrder() {
+            if (!selectedTable) {
+                alert("Please select a table first");
+                return;
+            }
+            
+            if (selectedItems.length === 0) {
+                alert("Please add at least one item to the order");
+                return;
+            }
+            
+            const itemIds = selectedItems.map(item => item.id);
+            
+            if (currentOrderId) {
+                // Modify existing order
+                modifyOrder(itemIds, []);
+            } else {
+                // Create new order (existing code)
+                $.post("/order", {
+                    table_id: selectedTable,
+                    items: itemIds
+                })
+                .then(response => {
+                    alert(`Order placed for Table ${selectedTableNumber}!`);
+                    selectedItems = [];
+                    $("#menu-section").hide();
+                    $("#order-button").show();
+                    fetchTables();
+                })
+                .catch(() => alert("Failed to place order"));
+            }
+        }
 
-// Update confirmOrder function to handle both new and modified orders
-function confirmOrder() {
-    if (!selectedTable) {
-        alert("Please select a table first");
-        return;
-    }
-    
-    if (selectedItems.length === 0) {
-        alert("Please add at least one item to the order");
-        return;
-    }
-    
-    const itemIds = selectedItems.map(item => item.id);
-    
-    if (currentOrderId) {
-        // Modify existing order
-        modifyOrder(itemIds, []);
-    } else {
-        // Create new order (existing code)
-        $.post("/order", {
-            table_id: selectedTable,
-            items: itemIds
-        })
-        .then(response => {
-            alert(`Order placed for Table ${selectedTableNumber}!`);
-            selectedItems = [];
-            $("#menu-section").hide();
-            $("#order-button").show();
-            fetchTables();
-        })
-        .catch(() => alert("Failed to place order"));
-    }
-}
+        // Clear selected items (batch removal)
+        function removeSelectedItems() {
+            const itemsToRemove = [];
+            
+            // Collect IDs of checked items
+            $(".item-checkbox:checked").each(function() {
+                itemsToRemove.push($(this).data("item-id"));
+            });
 
+            if (itemsToRemove.length === 0) {
+                alert("Please select at least one item to remove.");
+                return;
+            }
+
+            if (confirm(`Remove ${itemsToRemove.length} selected items?`)) {
+                modifyOrder([], itemsToRemove)  // Pass to modifyOrder()
+                    .then(() => {
+                        // Remove items from UI on success
+                        $(".item-checkbox:checked").closest(".order-item").remove();
+                        
+                        // Hide order display if no items left
+                        if ($("#current-order-items").children().length === 0) {
+                            $("#order-display").hide();
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Failed to remove items:", error);
+                        alert("Failed to remove items. Please try again.");
+                    });
+            }
+        }
+
+        // Helper: Update the UI after batch removal
+        function updateUIAfterBatchRemoval() {
+            $(".item-checkbox:checked").closest(".order-item").remove();
+            if ($("#current-order-items").children().length === 0) {
+                $("#current-order-items").html('<div class="text-muted">No active orders for this table</div>');
+            }
+        }
 
         // Free table functions
         function openFreeTableModal() {
@@ -889,104 +980,64 @@ function confirmOrder() {
             window.open(`/receipt/${selectedTable}`, '_blank');
         }
 
-	function previewReceipt() {
-    if (!selectedTable) {
-        alert("No table selected");
-        return;
-    }
-    
-    fetch(`/receipt_preview/${selectedTable}`)
-        .then(response => response.json())
-        .then(data => {
-            // Create a nicely formatted HTML receipt
-            let receiptHTML = `
-                <div class="receipt-container">
-                    <div class="receipt-header">
-                        <h3>RESTAURANT RECEIPT</h3>
-                        <p>Table: ${data.table_number}</p>
-                        <p>Date: ${new Date().toLocaleString()}</p>
-                        <hr>
-                    </div>
-                    <div class="receipt-items">
-                        <table class="receipt-table">
-                            <thead>
-                                <tr>
-                                    <th>Item</th>
-                                    <th class="text-right">Price</th>
-                                </tr>
-                            </thead>
-                            <tbody>`;
+        function previewReceipt() {
+            if (!selectedTable) {
+                alert("No table selected");
+                return;
+            }
             
-            data.items.forEach(item => {
-                receiptHTML += `
-                    <tr>
-                        <td>${item.name}</td>
-                        <td class="text-right">$${item.price.toFixed(2)}</td>
-                    </tr>`;
-            });
-            
-            receiptHTML += `
-                            </tbody>
-                        </table>
-                        <hr>
-                        <div class="receipt-total">
-                            <div class="total-row">
-                                <span>TOTAL:</span>
-                                <span class="total-amount">$${data.total.toFixed(2)}</span>
+            fetch(`/receipt_preview/${selectedTable}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Create a nicely formatted HTML receipt
+                    let receiptHTML = `
+                        <div class="receipt-container">
+                            <div class="receipt-header">
+                                <h3>RESTAURANT RECEIPT</h3>
+                                <p>Table: ${data.table_number}</p>
+                                <p>Date: ${new Date().toLocaleString()}</p>
+                                <hr>
+                            </div>
+                            <div class="receipt-items">
+                                <table class="receipt-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Item</th>
+                                            <th class="text-right">Price</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>`;
+                    
+                    data.items.forEach(item => {
+                        receiptHTML += `
+                            <tr>
+                                <td>${item.name}</td>
+                                <td class="text-right">$${item.price.toFixed(2)}</td>
+                            </tr>`;
+                    });
+                    
+                    receiptHTML += `
+                                    </tbody>
+                                </table>
+                                <hr>
+                                <div class="receipt-total">
+                                    <div class="total-row">
+                                        <span>TOTAL:</span>
+                                        <span class="total-amount">$${data.total.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="receipt-footer">
+                                <p>Thank you for dining with us!</p>
                             </div>
                         </div>
-                    </div>
-                    <div class="receipt-footer">
-                        <p>Thank you for dining with us!</p>
-                    </div>
-                </div>
-            `;
-            
-            $("#receipt-preview-content").html(receiptHTML);
-            $("#receipt-preview-modal").modal("show");
-        })
-        .catch(() => alert("Failed to load receipt"));
-}
-
-// Clear selected items (batch removal)
-function removeSelectedItems() {
-    const itemsToRemove = [];
-    
-    // Collect IDs of checked items
-    $(".item-checkbox:checked").each(function() {
-        itemsToRemove.push($(this).data("item-id"));
-    });
-
-    if (itemsToRemove.length === 0) {
-        alert("Please select at least one item to remove.");
-        return;
-    }
-
-    if (confirm(`Remove ${itemsToRemove.length} selected items?`)) {
-        modifyOrder([], itemsToRemove)  // Pass to modifyOrder()
-            .then(() => {
-                // Remove items from UI on success
-                $(".item-checkbox:checked").closest(".order-item").remove();
-                
-                // Hide order display if no items left
-                if ($("#current-order-items").children().length === 0) {
-                    $("#order-display").hide();
-                }
-            })
-            .catch(error => {
-                console.error("Failed to remove items:", error);
-                alert("Failed to remove items. Please try again.");
-            });
-    }
-}
-
-// Helper: Update the UI after batch removal
-function updateUIAfterBatchRemoval() {
-    $(".item-checkbox:checked").closest(".order-item").remove();
-    if ($("#current-order-items").children().length === 0) {
-        $("#current-order-items").html('<div class="text-muted">No active orders for this table</div>');
-    }
-}
+                    `;
+                    
+                    $("#receipt-preview-content").html(receiptHTML);
+                    $("#receipt-preview-modal").modal("show");
+                })
+                .catch(() => alert("Failed to load receipt"));
+        }
 
         // Refresh tables
         function refreshTables() {
